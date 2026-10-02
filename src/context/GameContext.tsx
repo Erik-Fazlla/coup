@@ -48,6 +48,15 @@ const initialState: State = {
 function reducer(state: State, event: Event): State {
   switch (event.type) {
     case 'entered':
+      // A slow join that completes twice must not reset a game that is already open:
+      // the subscription effect would not re-run for the same id.
+      if (
+        state.ready &&
+        event.gameId !== null &&
+        event.gameId === state.gameId
+      ) {
+        return state;
+      }
       return {
         ...state,
         ready: true,

@@ -1,5 +1,6 @@
+import {applyAction} from './actions';
 import {Rng} from './deck';
-import {Card, Game, Pending, Player} from './types';
+import {Card, Game, GameAction, Pending, Player} from './types';
 
 /** With this rng, shuffle() returns its input order unchanged. */
 export const identityRng: Rng = () => 0.999999;
@@ -46,4 +47,9 @@ export function makePending(partial: Partial<Pending> & Pick<Pending, 'actor' | 
     exchangeOptions: null,
     ...partial,
   };
+}
+
+/** Applies actions in order with the identity rng. */
+export function play(game: Game, ...actions: GameAction[]): Game {
+  return actions.reduce((state, action) => applyAction(state, action, identityRng), game);
 }

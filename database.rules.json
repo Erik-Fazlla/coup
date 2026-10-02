@@ -6,7 +6,7 @@
       "$gameId": {
         ".read": true,
         ".write": true,
-        ".validate": "newData.hasChildren(['host', 'code', 'status', 'playerOrder', 'players', 'state'])"
+        ".validate": "newData.hasChildren(['host', 'code', 'status', 'playerOrder', 'players', 'state']) && newData.child('status').val().matches(/^(waiting|playing|finished)$/)"
       }
     },
     "codes": {

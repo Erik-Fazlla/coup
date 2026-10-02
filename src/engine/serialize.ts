@@ -37,7 +37,7 @@ export function normalizeGame(raw: any): Game {
     host: raw.host,
     code: raw.code,
     status: raw.status,
-    playerOrder: toArray(raw.playerOrder),
+    playerOrder: toArray<string>(raw.playerOrder).filter(id => !!players[id]),
     players,
     deck: toArray(raw.deck),
     state: {

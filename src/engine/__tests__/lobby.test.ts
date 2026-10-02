@@ -107,6 +107,23 @@ describe('addPlayer', () => {
     expect(before.playerOrder).toEqual(['p1']);
   });
 
+  it('rejects a name already taken, ignoring case and padding', () => {
+    const game = lobby(2);
+    expect(() => addPlayer(game, 'p3', 'p2')).toThrow(IllegalActionError);
+    expect(() => addPlayer(game, 'p3', '  p2 ')).toThrow(
+      'That name is already taken in this game',
+    );
+    expect(() => addPlayer(game, 'p3', 'P1')).toThrow(
+      'That name is already taken in this game',
+    );
+    expect(game.playerOrder).toEqual(['p1', 'p2']);
+  });
+
+  it('still lets an existing player rejoin under their own name', () => {
+    const game = lobby(2);
+    expect(addPlayer(game, 'p2', 'P2')).toBe(game);
+  });
+
   it('rejects a seventh player', () => {
     expect(() => addPlayer(lobby(6), 'p7', 'P7')).toThrow('Game is full');
   });

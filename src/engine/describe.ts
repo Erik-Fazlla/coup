@@ -15,11 +15,11 @@ export const ACTION_LABEL: Record<ActionType, string> = {
 export const ACTION_BUTTON: Record<ActionType, string> = {
   income: 'Income +1',
   foreignAid: 'Foreign Aid +2',
-  coup: 'Coup (7)',
-  tax: 'Tax +3 · Duke',
-  assassinate: 'Assassinate (3) · Assassin',
-  steal: 'Steal 2 · Captain',
-  exchange: 'Exchange · Ambassador',
+  coup: 'Coup −7',
+  tax: 'Tax +3 (Duke)',
+  assassinate: 'Assassinate −3',
+  steal: 'Steal 2 (Captain)',
+  exchange: 'Exchange (Ambassador)',
 };
 
 function nameOf(game: Game, playerId: string | null): string {

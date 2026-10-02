@@ -168,6 +168,50 @@ describe('multiplayer sync', () => {
     );
     expect(lobby.playerOrder).toEqual(['h']);
   });
+
+  it('lets the host cancel a waiting lobby for everyone', async () => {
+    const lobbyId = await host.service.createGame('h', 'Host');
+    const lobbyCode = (await seen(host.service, lobbyId, () => true)).code;
+    await second.service.joinGame(lobbyCode, 'p2', 'Second');
+    await seen(second.service, lobbyId, g => g.playerOrder.length === 2);
+
+    const gone = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error('Timed out waiting for cancel')),
+        10000,
+      );
+      const unsubscribe = second.service.subscribe(
+        lobbyId,
+        g => {
+          if (g === null) {
+            clearTimeout(timer);
+            setTimeout(unsubscribe, 0);
+            resolve();
+          }
+        },
+        reject,
+      );
+    });
+    await expect(
+      host.service.cancelLobby(lobbyId, 'h'),
+    ).resolves.toBeUndefined();
+    await gone;
+  });
+
+  it('does not cancel a lobby for a non-host or a started game', async () => {
+    const lobbyId = await host.service.createGame('h', 'Host');
+    const lobbyCode = (await seen(host.service, lobbyId, () => true)).code;
+    await second.service.joinGame(lobbyCode, 'p2', 'Second');
+
+    await second.service.cancelLobby(lobbyId, 'p2');
+    const stillThere = await seen(host.service, lobbyId, () => true);
+    expect(stillThere.playerOrder).toEqual(['h', 'p2']);
+
+    await host.service.startGame(lobbyId, 'h');
+    await host.service.cancelLobby(lobbyId, 'h');
+    const started = await seen(host.service, lobbyId, () => true);
+    expect(started.status).toBe('playing');
+  });
 });
 
 describe('security rules', () => {
@@ -184,6 +228,19 @@ describe('security rules', () => {
   it('rejects a malformed game', async () => {
     await expect(
       set(ref(host.db, 'games/bad'), { host: 'h' }),
+    ).rejects.toThrow();
+  });
+
+  it('rejects a game with an unknown status', async () => {
+    await expect(
+      set(ref(host.db, 'games/bogus'), {
+        host: 'h',
+        code: 'ABCDE',
+        status: 'bogus',
+        playerOrder: ['h'],
+        players: { h: { name: 'Host', coins: 2 } },
+        state: { phase: 'action' },
+      }),
     ).rejects.toThrow();
   });
 });

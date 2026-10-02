@@ -3,13 +3,14 @@
  * `databaseURL` is required: create a Realtime Database first so the console includes it.
  */
 export const firebaseConfig = {
-  apiKey: 'YOUR_API_KEY',
-  authDomain: 'YOUR_PROJECT.firebaseapp.com',
-  databaseURL: 'https://YOUR_PROJECT-default-rtdb.firebaseio.com',
-  projectId: 'YOUR_PROJECT',
-  storageBucket: 'YOUR_PROJECT.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_APP_ID',
+  apiKey: 'AIzaSyCZ79LGZWXJP8g6xUIpUkvBDwUNiVOYlbM',
+  authDomain: 'coup-6b538.firebaseapp.com',
+  databaseURL:
+    'https://coup-6b538-default-rtdb.europe-west1.firebasedatabase.app',
+  projectId: 'coup-6b538',
+  storageBucket: 'coup-6b538.firebasestorage.app',
+  messagingSenderId: '811587359425',
+  appId: '1:811587359425:web:f2c8f7e77f866e5823fa40',
 };
 
 export function isConfigured(): boolean {

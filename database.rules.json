@@ -1,0 +1,27 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "games": {
+      "$gameId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['host', 'code', 'status', 'playerOrder', 'players', 'state'])"
+      }
+    },
+    "codes": {
+      "$code": {
+        ".read": true,
+        ".write": "!data.exists()",
+        ".validate": "newData.isString() && $code.matches(/^[A-Z0-9]{5}$/)"
+      }
+    },
+    "profiles": {
+      "$playerId": {
+        ".read": true,
+        ".write": true,
+        ".validate": "newData.hasChildren(['name', 'gamesPlayed', 'wins', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 20"
+      }
+    }
+  }
+}

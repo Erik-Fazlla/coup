@@ -110,6 +110,22 @@ export function createGameService(
     return mutate(gameId, game => removePlayer(game, playerId));
   }
 
+  /** Deletes a waiting game when the host cancels it. Does nothing for anyone else or once started. */
+  async function cancelLobby(gameId: string, playerId: string): Promise<void> {
+    await runTransaction(
+      gameRef(gameId),
+      raw => {
+        if (raw === null) {
+          return raw;
+        }
+        return raw.status === 'waiting' && raw.host === playerId
+          ? null
+          : undefined;
+      },
+      { applyLocally: false },
+    );
+  }
+
   function dispatch(gameId: string, action: GameAction): Promise<void> {
     return mutate(gameId, game => applyAction(game, action, rng));
   }
@@ -141,6 +157,7 @@ export function createGameService(
     joinGame,
     startGame,
     leaveLobby,
+    cancelLobby,
     dispatch,
     subscribe,
     subscribeConnection,

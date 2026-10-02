@@ -1,4 +1,6 @@
-import { promptLine, statusLine } from '../describe';
+import { ACTION_BUTTON, promptLine, statusLine } from '../describe';
+import { ACTION_COST } from '../rules';
+import { ActionType } from '../types';
 import { makeGame, makePending, play } from '../testHelpers';
 
 const three = () =>
@@ -101,5 +103,25 @@ describe('promptLine', () => {
 
   it('is empty when nothing is pending', () => {
     expect(promptLine(three())).toBe('');
+  });
+});
+
+describe('ACTION_BUTTON', () => {
+  it('has a non-empty label for every action type', () => {
+    (Object.keys(ACTION_COST) as ActionType[]).forEach(action => {
+      expect(ACTION_BUTTON[action].trim().length).toBeGreaterThan(0);
+    });
+  });
+
+  it('uses the short labels', () => {
+    expect(ACTION_BUTTON).toEqual({
+      income: 'Income +1',
+      foreignAid: 'Foreign Aid +2',
+      coup: 'Coup −7',
+      tax: 'Tax +3 (Duke)',
+      assassinate: 'Assassinate −3',
+      steal: 'Steal 2 (Captain)',
+      exchange: 'Exchange (Ambassador)',
+    });
   });
 });

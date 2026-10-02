@@ -13,13 +13,13 @@ function memoryStorage() {
   };
 }
 
-function setup() {
+function setup(storage = memoryStorage()) {
   const saved: Array<{ playerId: string; profile: Profile }> = [];
   const remoteSave = jest.fn(async (playerId: string, profile: Profile) => {
     saved.push({ playerId, profile });
   });
   const store = createProfileStore(
-    memoryStorage(),
+    storage,
     remoteSave,
     () => 0,
     () => 5000,
@@ -89,6 +89,67 @@ describe('profile store', () => {
     remoteSave.mockRejectedValue(new Error('offline'));
     await store.setName('Erik');
     expect(await store.loadProfile()).toMatchObject({ name: 'Erik' });
+  });
+
+  it('does not wait for the remote save to be acknowledged', async () => {
+    const { store, remoteSave } = setup();
+    remoteSave.mockImplementation(() => new Promise<void>(() => {}));
+    await expect(store.setName('Erik')).resolves.toMatchObject({
+      name: 'Erik',
+    });
+    expect(remoteSave).toHaveBeenCalledTimes(1);
+    expect(await store.loadProfile()).toMatchObject({ name: 'Erik' });
+  });
+
+  it('does not surface a rejected remote save as an unhandled rejection', async () => {
+    const { store, remoteSave } = setup();
+    remoteSave.mockRejectedValue(new Error('offline'));
+    await store.setName('Erik');
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(remoteSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a corrupt stored profile as no profile', async () => {
+    const storage = memoryStorage();
+    await storage.setItem('coup.profile', '{not json');
+    expect(await setup(storage).store.loadProfile()).toBeNull();
+  });
+
+  it('recovers from a corrupt counted-games list', async () => {
+    const storage = memoryStorage();
+    const { store } = setup(storage);
+    await store.setName('Erik');
+    await storage.setItem('coup.countedGames', '{broken');
+    expect(await store.recordResult('g1', true)).toMatchObject({
+      gamesPlayed: 1,
+      wins: 1,
+    });
+  });
+
+  it('counts a game once when recordResult calls overlap', async () => {
+    const { store } = setup();
+    await store.setName('Erik');
+    await Promise.all([
+      store.recordResult('g1', true),
+      store.recordResult('g1', true),
+    ]);
+    expect(await store.loadProfile()).toMatchObject({
+      gamesPlayed: 1,
+      wins: 1,
+    });
+  });
+
+  it('does not lose an update when recordResult calls for different games overlap', async () => {
+    const { store } = setup();
+    await store.setName('Erik');
+    await Promise.all([
+      store.recordResult('g1', true),
+      store.recordResult('g2', false),
+    ]);
+    expect(await store.loadProfile()).toMatchObject({
+      gamesPlayed: 2,
+      wins: 1,
+    });
   });
 
   it('remembers and clears the active game id', async () => {

@@ -99,4 +99,11 @@ describe('normalizeGame', () => {
     raw.playerOrder = { 0: 'a', 1: 'b', 2: 'c' };
     expect(normalizeGame(raw).playerOrder).toEqual(['a', 'b', 'c']);
   });
+
+  it('drops playerOrder ids that have no player entry', () => {
+    const raw = firebaseLike(three()) as Record<string, any>;
+    raw.playerOrder = ['a', 'ghost', 'b', 'c'];
+    const game = normalizeGame(raw);
+    expect(game.playerOrder).toEqual(['a', 'b', 'c']);
+  });
 });

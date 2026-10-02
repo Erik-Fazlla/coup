@@ -49,15 +49,36 @@ export function createProfileStore(
 
   async function loadProfile(): Promise<Profile | null> {
     const raw = await storage.getItem(KEYS.profile);
-    return raw ? (JSON.parse(raw) as Profile) : null;
+    if (!raw) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? (parsed as Profile) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function loadCountedGames(): Promise<string[]> {
+    try {
+      const parsed = JSON.parse(
+        (await storage.getItem(KEYS.countedGames)) ?? '[]',
+      );
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   async function save(profile: Profile): Promise<Profile> {
     await storage.setItem(KEYS.profile, JSON.stringify(profile));
     try {
-      await remoteSave(await getPlayerId(), profile);
+      // Not awaited: a remote write only resolves once the server acknowledges it, which never
+      // happens offline. The device copy is the source of truth; the mirror catches up on the next save.
+      remoteSave(await getPlayerId(), profile).catch(() => {});
     } catch {
-      // The device copy is the source of truth; the remote mirror catches up on the next save.
+      // Ignore: failing to start the mirror must never fail the local save.
     }
     return profile;
   }
@@ -71,8 +92,7 @@ export function createProfileStore(
     );
   }
 
-  /** Adds one finished game to the stats. Safe to call repeatedly for the same game. */
-  async function recordResult(
+  async function recordResultNow(
     gameId: string,
     won: boolean,
   ): Promise<Profile | null> {
@@ -80,9 +100,7 @@ export function createProfileStore(
     if (!profile) {
       return null;
     }
-    const counted: string[] = JSON.parse(
-      (await storage.getItem(KEYS.countedGames)) ?? '[]',
-    );
+    const counted = await loadCountedGames();
     if (counted.includes(gameId)) {
       return profile;
     }
@@ -95,6 +113,16 @@ export function createProfileStore(
       gamesPlayed: profile.gamesPlayed + 1,
       wins: profile.wins + (won ? 1 : 0),
     });
+  }
+
+  // Calls run one after another so overlapping calls cannot read the same stats and overwrite each other.
+  let recordQueue: Promise<unknown> = Promise.resolve();
+
+  /** Adds one finished game to the stats. Safe to call repeatedly for the same game. */
+  function recordResult(gameId: string, won: boolean): Promise<Profile | null> {
+    const result = recordQueue.then(() => recordResultNow(gameId, won));
+    recordQueue = result.catch(() => {});
+    return result;
   }
 
   async function getActiveGameId(): Promise<string | null> {

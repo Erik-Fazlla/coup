@@ -71,6 +71,14 @@ export function addPlayer(game: Game, playerId: string, name: string): Game {
   if (game.status !== 'waiting') {
     throw new IllegalActionError('Game already started');
   }
+  const taken = cleaned.toLowerCase();
+  if (
+    Object.values(game.players).some(
+      player => player.name.trim().toLowerCase() === taken,
+    )
+  ) {
+    throw new IllegalActionError('That name is already taken in this game');
+  }
   if (game.playerOrder.length >= MAX_PLAYERS) {
     throw new IllegalActionError('Game is full');
   }

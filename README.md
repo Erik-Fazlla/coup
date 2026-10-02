@@ -1,97 +1,140 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Coup
 
-# Getting Started
+Multiplayer Coup card game for Android. React Native + Firebase Realtime Database. 2–6 players, each on their own phone, joined by a 5-character code.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Requirements
 
-## Step 1: Start Metro
+- Node 22.11 or newer
+- JDK 17 for the Android build (it does not run on newer Java defaults such as Java 26; see "Build the APK")
+- Android SDK with `ANDROID_HOME` set
+- A Firebase project (the free Spark plan is enough)
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Install
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+```bash
+npm install
+```
 
-```sh
-# Using npm
+## Firebase setup
+
+1. In the [Firebase console](https://console.firebase.google.com), create a project. Analytics is not needed.
+2. **Build → Realtime Database → Create database.** Choose a region and start in locked mode.
+3. **Realtime Database → Rules:** replace the contents with `database.rules.json` from this repo and publish.
+4. **Project settings → Your apps → Web app (`</>`)**: register an app, then copy the values of `firebaseConfig` into `src/firebase/config.ts`. `databaseURL` must be present.
+5. Rebuild the app. Until the config is filled in, the app shows "Firebase is not configured".
+
+### About security
+
+The app has no login. The rules allow anyone who has the Firebase config to read and write `/games`, `/codes` and `/profiles`, and nothing else. Hidden cards are hidden by the app, not by the database. This is fine for playing with friends; do not store anything sensitive in this Firebase project and do not reuse it for another app.
+
+## Tests
+
+```bash
+npm test
+```
+
+Rules engine, profile store and id generation.
+
+```bash
+npm run test:sync
+```
+
+Runs three simulated players against the local Firebase emulator (needs Java on `PATH`; any recent version works for the emulator).
+
+On Windows the emulator's `java.exe` can stay alive after the run and keep port 9000 busy, which makes the next run fail with "port taken". Stop the leftover process, then run again:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object CommandLine -match 'firebase-database-emulator' | ForEach-Object { Stop-Process -Id $_.ProcessId }
+```
+
+```bash
+npm run typecheck
+```
+
+## Build the APK
+
+Point the build at JDK 17 for the current PowerShell session only (adjust the path to your JDK 17; this does not change the system default Java):
+
+```powershell
+$env:JAVA_HOME = "$env:USERPROFILE\.jdk\jdk-17.0.16"; $env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
+
+Build:
+
+```powershell
+cd android; .\gradlew assembleRelease; cd ..
+```
+
+The APK is at `android/app/build/outputs/apk/release/app-release.apk`. The first build downloads Gradle and the Android dependencies and needs an internet connection.
+
+### Signing
+
+Release builds are signed with `android/app/coup-release.keystore` using the credentials in `android/keystore.properties`:
+
+```
+storeFile=coup-release.keystore
+storePassword=...
+keyAlias=coup
+keyPassword=...
+```
+
+Both files are git-ignored. Keep a backup: an APK signed with a different key cannot be installed over an existing install. Without these files the build falls back to the debug key.
+
+To create a new keystore:
+
+```powershell
+& "$env:JAVA_HOME\bin\keytool.exe" -genkeypair -storetype PKCS12 -keystore android\app\coup-release.keystore -alias coup -keyalg RSA -keysize 2048 -validity 10000
+```
+
+## Install on phones
+
+Send `app-release.apk` to each player. On the phone, open the file and allow "Install unknown apps" for the app used to open it.
+
+Or with a USB cable and USB debugging enabled:
+
+```powershell
+adb install -r android\app\build\outputs\apk\release\app-release.apk
+```
+
+## Run in development
+
+Start Metro in one terminal:
+
+```bash
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
+Build and launch the debug app in another (JDK 17 session, device or emulator connected):
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+```bash
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+## How to play
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+1. Everyone enters a name on first launch.
+2. One player taps **Create Game** and shares the code.
+3. Others enter the code and tap **Join**. The host taps **Start Game** (2–6 players).
+4. On your turn, choose an action. After a claim, every other player taps **Pass**, **Challenge** or **Block**; the game continues once everyone has answered.
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+Full base-game rules are implemented: Income, Foreign Aid, Coup, Duke (Tax, blocks Foreign Aid), Assassin, Captain (Steal, blocks Steal), Ambassador (Exchange, blocks Steal), Contessa (blocks Assassination), challenges on actions and blocks, forced Coup at 10 coins.
 
-```sh
-bundle install
+## Known limits
+
+- No turn timer: if a player stops responding, the game waits for them. Reopening the app returns them to the game.
+- A player who taps **Quit** during a game stays in it as a silent player; the others will be waiting for their responses. They can rejoin with the same code.
+- A player who holds the claimed card always shows it when challenged (the official rules let them choose to lose a card instead).
+- Android only.
+
+## Project layout
+
 ```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
+src/engine      Rules as pure functions (no React Native, no Firebase)
+src/firebase    Config and game service (transactions on /games/{gameId})
+src/profile     Local profile and stats
+src/context     React contexts
+src/screens     Setup, Welcome, Home, Lobby, Game, Game Over
+src/components  Cards, seats, action and response controls
+sync            Emulator-based multiplayer test
+docs            Design spec and implementation plans
 ```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.

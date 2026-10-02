@@ -14,7 +14,8 @@ export function GameOverScreen() {
 
   useEffect(() => {
     if (gameId && winner && played) {
-      recordResult(gameId, winner === playerId);
+      // A failed stats write must not surface as an unhandled rejection on the result screen.
+      recordResult(gameId, winner === playerId).catch(() => {});
     }
   }, [gameId, winner, played, playerId, recordResult]);
 

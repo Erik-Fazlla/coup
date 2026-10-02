@@ -17,7 +17,7 @@ export type Phase =
   | 'finished';
 
 /** What happens after a player finishes losing an influence. */
-export type Continuation = 'endTurn' | 'resolveAction' | 'afterFailedChallenge';
+export type Continuation = 'endTurn' | 'resolveAction' | 'afterFailedChallenge' | 'afterFailedBlock';
 
 export interface Influence {
   card: Card;
@@ -63,6 +63,8 @@ export interface GameState {
   turnNumber: number;
   pending: Pending | null;
   lastAction: LastAction | null;
+  /** Bumped whenever something new opens for responses, so late taps on an older prompt can be rejected. */
+  claimSeq: number;
 }
 
 export interface Game {
@@ -81,9 +83,9 @@ export interface Game {
 export type GameAction =
   | {type: UntargetedAction; playerId: string}
   | {type: TargetedAction; playerId: string; target: string}
-  | {type: 'pass'; playerId: string}
-  | {type: 'challenge'; playerId: string}
-  | {type: 'block'; playerId: string; claim: Card}
+  | {type: 'pass'; playerId: string; seq: number}
+  | {type: 'challenge'; playerId: string; seq: number}
+  | {type: 'block'; playerId: string; claim: Card; seq: number}
   | {type: 'loseInfluence'; playerId: string; cardIndex: number}
   | {type: 'exchangeChoose'; playerId: string; keep: number[]};
 

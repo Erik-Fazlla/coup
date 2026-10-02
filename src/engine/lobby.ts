@@ -31,7 +31,7 @@ export function newGame(hostId: string, hostName: string, code: string, now: num
     playerOrder: [hostId],
     players: {[hostId]: newPlayer(hostName)},
     deck: [],
-    state: {phase: 'action', currentTurnPlayer: hostId, turnNumber: 0, pending: null, lastAction: null},
+    state: {phase: 'action', currentTurnPlayer: hostId, turnNumber: 0, pending: null, lastAction: null, claimSeq: 0},
     log: [],
     winner: null,
     createdAt: now,
@@ -92,6 +92,7 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
     turnNumber: 1,
     pending: null,
     lastAction: null,
+    claimSeq: 0,
   };
   next.log = ['Game started'];
   return next;

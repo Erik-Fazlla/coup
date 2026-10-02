@@ -38,6 +38,7 @@ export function normalizeGame(raw: any): Game {
       phase: state.phase,
       currentTurnPlayer: state.currentTurnPlayer,
       turnNumber: state.turnNumber ?? 0,
+      claimSeq: state.claimSeq ?? 0,
       pending: pending
         ? {
             actor: pending.actor,

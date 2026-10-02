@@ -71,6 +71,9 @@ function endTurn(g: Game): void {
 
 /** Carries out the declared action once nobody can stop it any more. */
 function resolveAction(g: Game, rng: Rng): void {
+  if (livingPlayers(g).length === 1) {
+    return endTurn(g);
+  }
   const pending = g.state.pending!;
   const actor = g.players[pending.actor];
   switch (pending.action) {
@@ -84,7 +87,7 @@ function resolveAction(g: Game, rng: Rng): void {
       return endTurn(g);
     case 'steal': {
       const target = g.players[pending.target!];
-      const amount = Math.min(2, target.coins);
+      const amount = isAlive(g, pending.target!) ? Math.min(2, target.coins) : 0;
       target.coins -= amount;
       actor.coins += amount;
       log(g, `${actor.name} steals ${amount} from ${target.name}`);
@@ -105,10 +108,22 @@ function resolveAction(g: Game, rng: Rng): void {
 }
 
 function runContinuation(g: Game, next: Continuation, rng: Rng): void {
+  if (livingPlayers(g).length === 1) {
+    return endTurn(g);
+  }
   if (next === 'endTurn') {
     return endTurn(g);
   }
   if (next === 'resolveAction') {
+    return resolveAction(g, rng);
+  }
+  if (next === 'afterFailedBlock') {
+    // The block was a bluff: whoever had not yet answered the action still gets their say.
+    g.state.phase = 'awaitingResponses';
+    if (pendingResponders(g).length > 0) {
+      g.state.claimSeq += 1;
+      return;
+    }
     return resolveAction(g, rng);
   }
   // afterFailedChallenge: the claim was proven, but the target may still block.
@@ -119,6 +134,7 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
     pending.challengeResolved = true;
     pending.responses = {};
     g.state.phase = 'awaitingResponses';
+    g.state.claimSeq += 1;
     return;
   }
   resolveAction(g, rng);
@@ -150,7 +166,7 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
   if (actor.coins < ACTION_COST[type]) {
     fail('Not enough coins');
   }
-  const target = 'target' in action ? action.target : null;
+  const target = TARGETED.includes(type) && 'target' in action ? action.target : null;
   if (TARGETED.includes(type) && (!target || target === playerId || !isAlive(g, target))) {
     fail('Choose a living opponent');
   }
@@ -184,6 +200,7 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
   const onTarget = target ? ` on ${nameOf(g, target)}` : '';
   log(g, `${actor.name} declares ${type}${onTarget}`);
   g.state.phase = 'awaitingResponses';
+  g.state.claimSeq += 1;
 }
 
 function pass(g: Game, playerId: string, rng: Rng): void {
@@ -192,11 +209,11 @@ function pass(g: Game, playerId: string, rng: Rng): void {
   }
   const pending = g.state.pending!;
   if (g.state.phase === 'awaitingBlockResponses') {
-    const block = pending.block!;
-    block.responses[playerId] = 'pass';
+    const activeBlock = pending.block!;
+    activeBlock.responses[playerId] = 'pass';
     if (pendingResponders(g).length === 0) {
       g.state.lastAction!.blocked = true;
-      log(g, `${nameOf(g, block.blocker)} blocks with ${block.claim}`);
+      log(g, `${nameOf(g, activeBlock.blocker)} blocks with ${activeBlock.claim}`);
       endTurn(g);
     }
     return;
@@ -214,6 +231,7 @@ function block(g: Game, playerId: string, claim: Card): void {
   }
   g.state.pending!.block = {blocker: playerId, claim, responses: {}};
   g.state.phase = 'awaitingBlockResponses';
+  g.state.claimSeq += 1;
   log(g, `${nameOf(g, playerId)} claims ${claim} to block`);
 }
 
@@ -250,7 +268,8 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
     }
     log(g, `${challenger} challenges ${blocker}, who was bluffing`);
     pending.block = null;
-    return requireLoseInfluence(g, blockClaim.blocker, 'resolveAction', rng);
+    pending.responses[blockClaim.blocker] = 'pass';
+    return requireLoseInfluence(g, blockClaim.blocker, 'afterFailedBlock', rng);
   }
 
   const claim = pending.claim!;
@@ -275,6 +294,7 @@ function exchangeChoose(g: Game, playerId: string, keep: number[], rng: Rng): vo
   const options = pending.exchangeOptions;
   const slots = hiddenIndexes(g, playerId);
   const valid =
+    Array.isArray(keep) &&
     keep.length === slots.length &&
     new Set(keep).size === keep.length &&
     keep.every(i => Number.isInteger(i) && i >= 0 && i < options.length);
@@ -301,6 +321,12 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
   }
   if (!game.players[action.playerId]) {
     fail('You are not in this game');
+  }
+  if (
+    (action.type === 'pass' || action.type === 'challenge' || action.type === 'block') &&
+    action.seq !== game.state.claimSeq
+  ) {
+    fail('Too late: the game has moved on');
   }
   const g = clone(game);
   const id = action.playerId;

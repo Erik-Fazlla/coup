@@ -29,7 +29,14 @@ export function makeGame(hands: Record<string, Card[]>, options: MakeGameOptions
     playerOrder: ids,
     players,
     deck: options.deck ?? ['Duke', 'Assassin', 'Captain', 'Ambassador', 'Contessa'],
-    state: {phase: 'action', currentTurnPlayer: ids[0], turnNumber: 1, pending: null, lastAction: null},
+    state: {
+      phase: 'action',
+      currentTurnPlayer: ids[0],
+      turnNumber: 1,
+      pending: null,
+      lastAction: null,
+      claimSeq: 0,
+    },
     log: [],
     winner: null,
     createdAt: 0,
@@ -49,7 +56,20 @@ export function makePending(partial: Partial<Pending> & Pick<Pending, 'actor' | 
   };
 }
 
-/** Applies actions in order with the identity rng. */
-export function play(game: Game, ...actions: GameAction[]): Game {
-  return actions.reduce((state, action) => applyAction(state, action, identityRng), game);
+type WithOptionalSeq<A> = A extends {seq: number} ? Omit<A, 'seq'> & {seq?: number} : A;
+
+/** A GameAction whose `seq` may be left out; `play` then uses the claim that is open at that moment. */
+export type LooseAction = WithOptionalSeq<GameAction>;
+
+function withSeq(game: Game, action: LooseAction): GameAction {
+  const needsSeq = action.type === 'pass' || action.type === 'challenge' || action.type === 'block';
+  if (needsSeq && action.seq === undefined) {
+    return {...action, seq: game.state.claimSeq} as GameAction;
+  }
+  return action as GameAction;
+}
+
+/** Applies actions in order with the identity rng, filling in a missing `seq` with the current `claimSeq`. */
+export function play(game: Game, ...actions: LooseAction[]): Game {
+  return actions.reduce((state, action) => applyAction(state, withSeq(state, action), identityRng), game);
 }

@@ -74,6 +74,7 @@ describe('startGame', () => {
       turnNumber: 1,
       pending: null,
       lastAction: null,
+      claimSeq: 0,
     });
     expect(game.players.p1.influence).toEqual([
       {card: 'Duke', revealed: false},

@@ -267,6 +267,30 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
   requireLoseInfluence(g, pending.actor, 'endTurn', rng);
 }
 
+function exchangeChoose(g: Game, playerId: string, keep: number[], rng: Rng): void {
+  const pending = g.state.pending;
+  if (g.state.phase !== 'exchange' || !pending || pending.actor !== playerId || !pending.exchangeOptions) {
+    fail('You are not exchanging cards');
+  }
+  const options = pending.exchangeOptions;
+  const slots = hiddenIndexes(g, playerId);
+  const valid =
+    keep.length === slots.length &&
+    new Set(keep).size === keep.length &&
+    keep.every(i => Number.isInteger(i) && i >= 0 && i < options.length);
+  if (!valid) {
+    fail(`Choose exactly ${slots.length} card(s)`);
+  }
+  const actor = g.players[playerId];
+  slots.forEach((slot, n) => {
+    actor.influence[slot] = {card: options[keep[n]], revealed: false};
+  });
+  const returned = options.filter((_, i) => !keep.includes(i));
+  g.deck = shuffle([...g.deck, ...returned], rng);
+  log(g, `${actor.name} exchanges cards`);
+  endTurn(g);
+}
+
 /**
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
@@ -309,6 +333,9 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
       break;
     case 'challenge':
       challenge(g, id, rng);
+      break;
+    case 'exchangeChoose':
+      exchangeChoose(g, id, action.keep, rng);
       break;
     default:
       fail('Unknown action');

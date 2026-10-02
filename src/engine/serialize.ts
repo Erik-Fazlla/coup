@@ -1,10 +1,12 @@
-import {Game, Player} from './types';
+import { Game, Player } from './types';
 
 function toArray<T>(value: unknown): T[] {
   if (!value) {
     return [];
   }
-  return Array.isArray(value) ? (value as T[]) : (Object.values(value as object) as T[]);
+  return Array.isArray(value)
+    ? (value as T[])
+    : (Object.values(value as object) as T[]);
 }
 
 /**
@@ -55,7 +57,9 @@ export function normalizeGame(raw: any): Game {
                 }
               : null,
             loseInfluence: pending.loseInfluence ?? null,
-            exchangeOptions: pending.exchangeOptions ? toArray(pending.exchangeOptions) : null,
+            exchangeOptions: pending.exchangeOptions
+              ? toArray(pending.exchangeOptions)
+              : null,
           }
         : null,
       lastAction: lastAction

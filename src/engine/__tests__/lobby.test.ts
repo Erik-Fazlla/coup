@@ -1,5 +1,11 @@
-import {addPlayer, generateCode, newGame, removePlayer, startGame} from '../lobby';
-import {Game} from '../types';
+import {
+  addPlayer,
+  generateCode,
+  newGame,
+  removePlayer,
+  startGame,
+} from '../lobby';
+import { Game } from '../types';
 
 const identityRng = () => 0.999999;
 
@@ -18,7 +24,12 @@ describe('newGame', () => {
     expect(game.host).toBe('p1');
     expect(game.code).toBe('ABCDE');
     expect(game.playerOrder).toEqual(['p1']);
-    expect(game.players.p1).toEqual({name: 'P1', coins: 2, influence: [], eliminatedAt: null});
+    expect(game.players.p1).toEqual({
+      name: 'P1',
+      coins: 2,
+      influence: [],
+      eliminatedAt: null,
+    });
     expect(game.createdAt).toBe(1000);
     expect(game.winner).toBeNull();
   });
@@ -44,7 +55,9 @@ describe('addPlayer', () => {
 
   it('rejects new players once started but lets existing players rejoin', () => {
     const started = startGame(lobby(2), 'p1', identityRng);
-    expect(() => addPlayer(started, 'p3', 'P3')).toThrow('Game already started');
+    expect(() => addPlayer(started, 'p3', 'P3')).toThrow(
+      'Game already started',
+    );
     expect(addPlayer(started, 'p2', 'P2')).toBe(started);
   });
 });
@@ -77,33 +90,47 @@ describe('startGame', () => {
       claimSeq: 0,
     });
     expect(game.players.p1.influence).toEqual([
-      {card: 'Duke', revealed: false},
-      {card: 'Duke', revealed: false},
+      { card: 'Duke', revealed: false },
+      { card: 'Duke', revealed: false },
     ]);
-    expect(game.players.p2.influence.map(i => i.card)).toEqual(['Duke', 'Assassin']);
-    expect(game.players.p3.influence.map(i => i.card)).toEqual(['Assassin', 'Assassin']);
+    expect(game.players.p2.influence.map(i => i.card)).toEqual([
+      'Duke',
+      'Assassin',
+    ]);
+    expect(game.players.p3.influence.map(i => i.card)).toEqual([
+      'Assassin',
+      'Assassin',
+    ]);
     expect(game.deck).toHaveLength(9);
     expect(game.players.p3.coins).toBe(2);
   });
 
   it('only lets the host start', () => {
-    expect(() => startGame(lobby(2), 'p2', identityRng)).toThrow('Only the host can start the game');
+    expect(() => startGame(lobby(2), 'p2', identityRng)).toThrow(
+      'Only the host can start the game',
+    );
   });
 
   it('needs at least two players', () => {
-    expect(() => startGame(lobby(1), 'p1', identityRng)).toThrow('Need at least 2 players');
+    expect(() => startGame(lobby(1), 'p1', identityRng)).toThrow(
+      'Need at least 2 players',
+    );
   });
 
   it('cannot start twice', () => {
     const started = startGame(lobby(2), 'p1', identityRng);
-    expect(() => startGame(started, 'p1', identityRng)).toThrow('Game already started');
+    expect(() => startGame(started, 'p1', identityRng)).toThrow(
+      'Game already started',
+    );
   });
 });
 
 describe('generateCode', () => {
   it('produces 5 unambiguous characters', () => {
     for (let i = 0; i < 50; i++) {
-      expect(generateCode(Math.random)).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/);
+      expect(generateCode(Math.random)).toMatch(
+        /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{5}$/,
+      );
     }
   });
 

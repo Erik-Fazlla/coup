@@ -1,5 +1,5 @@
-import {buildDeck, shuffle} from '../deck';
-import {CARDS} from '../types';
+import { buildDeck, shuffle } from '../deck';
+import { CARDS } from '../types';
 
 describe('buildDeck', () => {
   it('has 15 cards, 3 of each character', () => {

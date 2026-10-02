@@ -1,4 +1,4 @@
-import {generateId} from '../util/id';
+import { generateId } from '../util/id';
 
 export interface Profile {
   name: string;
@@ -26,7 +26,9 @@ const KEYS = {
 const MAX_COUNTED_GAMES = 50;
 
 export function winRate(profile: Profile): number {
-  return profile.gamesPlayed === 0 ? 0 : Math.round((100 * profile.wins) / profile.gamesPlayed);
+  return profile.gamesPlayed === 0
+    ? 0
+    : Math.round((100 * profile.wins) / profile.gamesPlayed);
 }
 
 export function createProfileStore(
@@ -62,21 +64,37 @@ export function createProfileStore(
 
   async function setName(name: string): Promise<Profile> {
     const existing = await loadProfile();
-    return save(existing ? {...existing, name} : {name, gamesPlayed: 0, wins: 0, createdAt: now()});
+    return save(
+      existing
+        ? { ...existing, name }
+        : { name, gamesPlayed: 0, wins: 0, createdAt: now() },
+    );
   }
 
   /** Adds one finished game to the stats. Safe to call repeatedly for the same game. */
-  async function recordResult(gameId: string, won: boolean): Promise<Profile | null> {
+  async function recordResult(
+    gameId: string,
+    won: boolean,
+  ): Promise<Profile | null> {
     const profile = await loadProfile();
     if (!profile) {
       return null;
     }
-    const counted: string[] = JSON.parse((await storage.getItem(KEYS.countedGames)) ?? '[]');
+    const counted: string[] = JSON.parse(
+      (await storage.getItem(KEYS.countedGames)) ?? '[]',
+    );
     if (counted.includes(gameId)) {
       return profile;
     }
-    await storage.setItem(KEYS.countedGames, JSON.stringify([...counted, gameId].slice(-MAX_COUNTED_GAMES)));
-    return save({...profile, gamesPlayed: profile.gamesPlayed + 1, wins: profile.wins + (won ? 1 : 0)});
+    await storage.setItem(
+      KEYS.countedGames,
+      JSON.stringify([...counted, gameId].slice(-MAX_COUNTED_GAMES)),
+    );
+    return save({
+      ...profile,
+      gamesPlayed: profile.gamesPlayed + 1,
+      wins: profile.wins + (won ? 1 : 0),
+    });
   }
 
   async function getActiveGameId(): Promise<string | null> {
@@ -91,7 +109,14 @@ export function createProfileStore(
     }
   }
 
-  return {getPlayerId, loadProfile, setName, recordResult, getActiveGameId, setActiveGameId};
+  return {
+    getPlayerId,
+    loadProfile,
+    setName,
+    recordResult,
+    getActiveGameId,
+    setActiveGameId,
+  };
 }
 
 export type ProfileStore = ReturnType<typeof createProfileStore>;

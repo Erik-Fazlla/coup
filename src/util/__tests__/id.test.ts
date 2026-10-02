@@ -1,4 +1,4 @@
-import {generateId} from '../id';
+import { generateId } from '../id';
 
 describe('generateId', () => {
   it('is a database-safe key: p followed by 20 base-36 characters', () => {

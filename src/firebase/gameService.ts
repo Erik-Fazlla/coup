@@ -1,22 +1,43 @@
-import {Database, get, onValue, push, ref, runTransaction, set} from 'firebase/database';
-import {applyAction} from '../engine/actions';
-import {Rng} from '../engine/deck';
-import {addPlayer, generateCode, newGame, removePlayer, startGame as startLobby} from '../engine/lobby';
-import {normalizeGame} from '../engine/serialize';
-import {Game, GameAction} from '../engine/types';
+import {
+  Database,
+  get,
+  onValue,
+  push,
+  ref,
+  runTransaction,
+  set,
+} from 'firebase/database';
+import { applyAction } from '../engine/actions';
+import { Rng } from '../engine/deck';
+import {
+  addPlayer,
+  generateCode,
+  newGame,
+  removePlayer,
+  startGame as startLobby,
+} from '../engine/lobby';
+import { normalizeGame } from '../engine/serialize';
+import { Game, GameAction } from '../engine/types';
 
 const CREATE_ATTEMPTS = 5;
 const CODE_PATTERN = /^[A-Z0-9]{5}$/;
 
-export function createGameService(db: Database, rng: Rng = Math.random, now: () => number = Date.now) {
+export function createGameService(
+  db: Database,
+  rng: Rng = Math.random,
+  now: () => number = Date.now,
+) {
   const gameRef = (gameId: string) => ref(db, `games/${gameId}`);
 
   /**
    * Applies `change` to the game atomically. If another phone wrote first, Firebase re-runs `change`
    * on the fresh state. An error thrown by `change` aborts the write and is re-thrown to the caller.
    */
-  async function mutate(gameId: string, change: (game: Game) => Game): Promise<void> {
-    const outcome: {error: Error | null} = {error: null};
+  async function mutate(
+    gameId: string,
+    change: (game: Game) => Game,
+  ): Promise<void> {
+    const outcome: { error: Error | null } = { error: null };
     const result = await runTransaction(
       gameRef(gameId),
       raw => {
@@ -31,7 +52,7 @@ export function createGameService(db: Database, rng: Rng = Math.random, now: () 
           return undefined;
         }
       },
-      {applyLocally: false},
+      { applyLocally: false },
     );
     if (outcome.error) {
       throw outcome.error;
@@ -52,7 +73,7 @@ export function createGameService(db: Database, rng: Rng = Math.random, now: () 
       const reserved = await runTransaction(
         ref(db, `codes/${code}`),
         current => (current === null ? gameId : undefined),
-        {applyLocally: false},
+        { applyLocally: false },
       );
       if (reserved.committed) {
         await set(gameRef(gameId), newGame(playerId, name, code, now()));
@@ -63,7 +84,11 @@ export function createGameService(db: Database, rng: Rng = Math.random, now: () 
   }
 
   /** Joins (or rejoins) the game with this code and returns its id. */
-  async function joinGame(code: string, playerId: string, name: string): Promise<string> {
+  async function joinGame(
+    code: string,
+    playerId: string,
+    name: string,
+  ): Promise<string> {
     const normalized = code.trim().toUpperCase();
     if (!CODE_PATTERN.test(normalized)) {
       throw new Error('No game found with that code');
@@ -97,16 +122,29 @@ export function createGameService(db: Database, rng: Rng = Math.random, now: () 
   ): () => void {
     return onValue(
       gameRef(gameId),
-      snapshot => onGame(snapshot.exists() ? normalizeGame(snapshot.val()) : null),
+      snapshot =>
+        onGame(snapshot.exists() ? normalizeGame(snapshot.val()) : null),
       onError,
     );
   }
 
-  function subscribeConnection(onChange: (connected: boolean) => void): () => void {
-    return onValue(ref(db, '.info/connected'), snapshot => onChange(snapshot.val() === true));
+  function subscribeConnection(
+    onChange: (connected: boolean) => void,
+  ): () => void {
+    return onValue(ref(db, '.info/connected'), snapshot =>
+      onChange(snapshot.val() === true),
+    );
   }
 
-  return {createGame, joinGame, startGame, leaveLobby, dispatch, subscribe, subscribeConnection};
+  return {
+    createGame,
+    joinGame,
+    startGame,
+    leaveLobby,
+    dispatch,
+    subscribe,
+    subscribeConnection,
+  };
 }
 
 export type GameService = ReturnType<typeof createGameService>;

@@ -62,8 +62,10 @@ $env:JAVA_HOME = "$env:USERPROFILE\.jdk\jdk-17.0.16"; $env:Path = "$env:JAVA_HOM
 Build:
 
 ```powershell
-cd android; .\gradlew assembleRelease; cd ..
+npm run build:android
 ```
+
+(Windows shortcut for `cd android; .\gradlew assembleRelease`. It needs the JDK 17 session above.)
 
 The APK is at `android/app/build/outputs/apk/release/app-release.apk`. The first build downloads Gradle and the Android dependencies and needs an internet connection.
 

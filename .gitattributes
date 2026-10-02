@@ -1,0 +1,12 @@
+# Keep LF line endings in the working tree on every OS, so Prettier's check
+# (endOfLine: lf) passes on Windows too. Git still detects binary files itself.
+* text=auto eol=lf
+
+# Windows scripts must keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch these.
+*.png binary
+*.jar binary
+*.keystore binary

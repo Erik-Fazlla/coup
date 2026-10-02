@@ -15,6 +15,7 @@ export function HomeScreen() {
   const { connected, busy, error, createGame, joinGame } = useGame();
   const [code, setCode] = useState('');
   const disabled = !connected || busy;
+  const canJoin = !disabled && code.trim().length === CODE_LENGTH;
 
   if (!profile) {
     return null;
@@ -42,6 +43,8 @@ export function HomeScreen() {
             value={code}
             onChangeText={value => setCode(value.toUpperCase())}
             maxLength={CODE_LENGTH}
+            onSubmitEditing={() => canJoin && joinGame(code)}
+            returnKeyType="go"
             autoCapitalize="characters"
             autoCorrect={false}
             placeholder="CODE"
@@ -51,10 +54,14 @@ export function HomeScreen() {
           <Button
             label="Join"
             variant="secondary"
-            disabled={disabled || code.trim().length !== CODE_LENGTH}
+            disabled={!canJoin}
             onPress={() => joinGame(code)}
           />
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
         </View>
       </View>
     </Screen>

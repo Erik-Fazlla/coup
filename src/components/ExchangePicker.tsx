@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../engine/types';
 import { colors, spacing } from '../theme';
 import { Button } from './Button';
@@ -35,14 +35,22 @@ export function ExchangePicker({
         Choose {keepCount} card{keepCount === 1 ? '' : 's'} to keep
       </Text>
       <View style={styles.row}>
-        {options.map((card, index) => (
-          <CardView
-            key={index}
-            card={card}
-            selected={selected.includes(index)}
-            onPress={() => toggle(index)}
-          />
-        ))}
+        <ScrollView
+          horizontal
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          style={styles.cards}
+          contentContainerStyle={styles.cardsContent}
+        >
+          {options.map((card, index) => (
+            <CardView
+              key={index}
+              card={card}
+              selected={selected.includes(index)}
+              onPress={() => toggle(index)}
+            />
+          ))}
+        </ScrollView>
         <Button
           label="Confirm"
           disabled={disabled || selected.length !== keepCount}
@@ -60,5 +68,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center' },
+  cards: { flexGrow: 0, flexShrink: 1 },
+  cardsContent: { alignItems: 'center' },
 });

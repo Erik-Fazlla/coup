@@ -24,9 +24,8 @@ describe('withTimeout', () => {
   it('rejects with a timeout error when the promise is too slow', async () => {
     const never = new Promise<void>(() => {});
     const result = withTimeout(never, 1000);
-    const assertion = expect(result).rejects.toBeInstanceOf(TimeoutError);
     jest.advanceTimersByTime(1000);
-    await assertion;
+    await expect(result).rejects.toBeInstanceOf(TimeoutError);
     expect(jest.getTimerCount()).toBe(0);
   });
 

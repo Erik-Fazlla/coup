@@ -1,6 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button } from './src/components/Button';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { Screen } from './src/components/Screen';
 import { GameProvider, useGame } from './src/context/GameContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
@@ -24,13 +26,11 @@ function GameRouter() {
   }
   if (!game) {
     return (
-      <Screen>
-        <Text style={styles.message}>
-          {loaded ? 'This game no longer exists.' : 'Loading game…'}
-        </Text>
-        {error && <Text style={styles.error}>{error}</Text>}
-        <Button label="Back to Home" variant="secondary" onPress={leave} />
-      </Screen>
+      <Fallback
+        message={loaded ? 'This game no longer exists.' : 'Loading game…'}
+        error={error}
+        onBack={leave}
+      />
     );
   }
   switch (game.status) {
@@ -40,7 +40,37 @@ function GameRouter() {
       return <GameScreen />;
     case 'finished':
       return <GameOverScreen />;
+    default:
+      return (
+        <Fallback
+          message="This game cannot be opened."
+          error={error}
+          onBack={leave}
+        />
+      );
   }
+}
+
+function Fallback({
+  message,
+  error,
+  onBack,
+}: {
+  message: string;
+  error: string | null;
+  onBack: () => void;
+}) {
+  return (
+    <Screen>
+      <Text style={styles.message}>{message}</Text>
+      {error && (
+        <Text style={styles.error} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
+      <Button label="Back to Home" variant="secondary" onPress={onBack} />
+    </Screen>
+  );
 }
 
 function ProfileRouter() {
@@ -60,13 +90,18 @@ function ProfileRouter() {
 }
 
 export default function App() {
-  if (!isConfigured()) {
-    return <SetupScreen />;
-  }
   return (
-    <ProfileProvider>
-      <ProfileRouter />
-    </ProfileProvider>
+    <SafeAreaProvider>
+      {isConfigured() ? (
+        <ErrorBoundary>
+          <ProfileProvider>
+            <ProfileRouter />
+          </ProfileProvider>
+        </ErrorBoundary>
+      ) : (
+        <SetupScreen />
+      )}
+    </SafeAreaProvider>
   );
 }
 

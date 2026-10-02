@@ -38,8 +38,16 @@ export function LobbyScreen() {
           ) : (
             <Text style={styles.label}>Waiting for the host to start…</Text>
           )}
-          <Button label="Leave" variant="secondary" onPress={leave} />
-          {error && <Text style={styles.error}>{error}</Text>}
+          <Button
+            label={isHost ? 'Cancel Game' : 'Leave'}
+            variant="secondary"
+            onPress={leave}
+          />
+          {error && (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
         </View>
         <View style={styles.column}>
           <Text style={styles.label}>

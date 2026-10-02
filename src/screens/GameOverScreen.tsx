@@ -18,18 +18,20 @@ export function GameOverScreen() {
     }
   }, [gameId, winner, played, playerId, recordResult]);
 
-  if (!game || !winner) {
+  if (!game) {
     return null;
   }
+
+  const title = !winner
+    ? 'Game over'
+    : winner === playerId
+    ? 'You win!'
+    : `${game.players[winner]?.name ?? 'Someone'} wins`;
 
   return (
     <Screen>
       <View style={styles.center}>
-        <Text style={styles.title}>
-          {winner === playerId
-            ? 'You win!'
-            : `${game.players[winner].name} wins`}
-        </Text>
+        <Text style={styles.title}>{title}</Text>
         <Text style={styles.meta}>
           Game over after {game.state.turnNumber} turns
         </Text>

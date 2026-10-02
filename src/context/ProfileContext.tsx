@@ -11,6 +11,8 @@ import { Profile } from '../profile/profileStore';
 
 interface ProfileValue {
   loading: boolean;
+  /** Set when the stored player id could not be read; the app still opens so the problem can be shown. */
+  startupError: string | null;
   playerId: string;
   profile: Profile | null;
   setName: (name: string) => Promise<void>;
@@ -22,18 +24,30 @@ const ProfileContext = createContext<ProfileValue | null>(null);
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { profiles } = getServices();
   const [loading, setLoading] = useState(true);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState('');
   const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const id = await profiles.getPlayerId();
-      const stored = await profiles.loadProfile();
-      if (active) {
-        setPlayerId(id);
-        setProfile(stored);
-        setLoading(false);
+      try {
+        const id = await profiles.getPlayerId();
+        const stored = await profiles.loadProfile();
+        if (active) {
+          setPlayerId(id);
+          setProfile(stored);
+        }
+      } catch {
+        if (active) {
+          setStartupError(
+            'Could not read saved data from this device. Your progress may not be saved.',
+          );
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     })();
     return () => {
@@ -43,7 +57,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const setName = useCallback(
     async (name: string) => {
-      setProfile(await profiles.setName(name));
+      const id = await profiles.getPlayerId();
+      const saved = await profiles.setName(name);
+      setPlayerId(id);
+      setProfile(saved);
     },
     [profiles],
   );
@@ -59,8 +76,15 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ loading, playerId, profile, setName, recordResult }),
-    [loading, playerId, profile, setName, recordResult],
+    () => ({
+      loading,
+      startupError,
+      playerId,
+      profile,
+      setName,
+      recordResult,
+    }),
+    [loading, startupError, playerId, profile, setName, recordResult],
   );
 
   return (

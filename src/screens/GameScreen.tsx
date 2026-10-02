@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ActionBar } from '../components/ActionBar';
 import { Button } from '../components/Button';
 import { CardView } from '../components/CardView';
@@ -34,6 +34,16 @@ export function GameScreen() {
     );
   }
 
+  const confirmQuit = () =>
+    Alert.alert(
+      'Leave this game?',
+      `The others will be waiting for your moves. You can rejoin with code ${game.code}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Leave', style: 'destructive', onPress: leave },
+      ],
+    );
+
   const { phase, pending, currentTurnPlayer, turnNumber } = game.state;
   const disabled = !connected || busy;
   const opponents = game.playerOrder.filter(id => id !== playerId);
@@ -48,7 +58,12 @@ export function GameScreen() {
     <Screen>
       <ConnectionBanner connected={connected} />
 
-      <View style={styles.opponents}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.opponents}
+        contentContainerStyle={styles.opponentsContent}
+      >
         {opponents.map(id => (
           <PlayerSeat
             key={id}
@@ -56,18 +71,22 @@ export function GameScreen() {
             isTurn={id === currentTurnPlayer}
           />
         ))}
-      </View>
+      </ScrollView>
 
       <View style={styles.middle}>
         <View style={styles.statusBox}>
           <Text style={styles.status}>{statusLine(game)}</Text>
           <Text style={styles.meta}>
-            Turn {turnNumber} · Deck {game.deck.length}
+            Turn {turnNumber} · Deck {game.deck.length} · Code {game.code}
           </Text>
-          {error && <Text style={styles.error}>{error}</Text>}
+          {error && (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
         </View>
         <GameLog log={game.log} />
-        <Button label="Quit" variant="secondary" onPress={leave} />
+        <Button label="Quit" variant="secondary" onPress={confirmQuit} />
       </View>
 
       <View style={styles.bottom}>
@@ -127,11 +146,8 @@ export function GameScreen() {
 }
 
 const styles = StyleSheet.create({
-  opponents: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
+  opponents: { flexGrow: 0 },
+  opponentsContent: { flexGrow: 1, justifyContent: 'center' },
   middle: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   statusBox: { flex: 1 },
   status: { color: colors.text, fontSize: 16, fontWeight: '700' },

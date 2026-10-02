@@ -7,7 +7,9 @@ export function ConnectionBanner({ connected }: { connected: boolean }) {
     return null;
   }
   return (
-    <Text style={styles.banner}>Connecting to server… actions are paused</Text>
+    <Text style={styles.banner} accessibilityLiveRegion="polite">
+      Connecting to server… actions are paused
+    </Text>
   );
 }
 

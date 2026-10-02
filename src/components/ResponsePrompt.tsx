@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { promptLine } from '../engine/describe';
 import { responseOptions } from '../engine/rules';
 import { Game, GameAction } from '../engine/types';
@@ -24,7 +24,12 @@ export function ResponsePrompt({ game, playerId, disabled, onAction }: Props) {
   return (
     <View>
       <Text style={styles.prompt}>{promptLine(game)}</Text>
-      <View style={styles.row}>
+      <ScrollView
+        horizontal
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
         <Button
           label="Pass"
           variant="secondary"
@@ -47,7 +52,7 @@ export function ResponsePrompt({ game, playerId, disabled, onAction }: Props) {
             onPress={() => onAction({ type: 'block', playerId, claim, seq })}
           />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -59,5 +64,5 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap' },
+  row: { flexDirection: 'row', alignItems: 'center' },
 });

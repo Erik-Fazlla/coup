@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Player } from '../engine/types';
 import { colors, spacing } from '../theme';
 import { CardView } from './CardView';
@@ -15,17 +15,23 @@ export function LoseInfluencePicker({ player, disabled, onPick }: Props) {
   return (
     <View>
       <Text style={styles.prompt}>Choose a card to lose</Text>
-      <View style={styles.row}>
+      <ScrollView
+        horizontal
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
         {player.influence.map((influence, index) =>
           influence.revealed ? null : (
             <CardView
               key={index}
               card={influence.card}
-              onPress={disabled ? undefined : () => onPick(index)}
+              disabled={disabled}
+              onPress={() => onPick(index)}
             />
           ),
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -37,5 +43,5 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap' },
+  row: { flexDirection: 'row', alignItems: 'center' },
 });

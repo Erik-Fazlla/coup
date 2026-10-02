@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, spacing } from '../theme';
 
-const VISIBLE_LINES = 5;
+const VISIBLE_LINES = 3;
 
 export function GameLog({ log }: { log: string[] }) {
   return (

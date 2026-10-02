@@ -7,6 +7,7 @@ interface Props {
   card: Card;
   revealed?: boolean;
   selected?: boolean;
+  disabled?: boolean;
   onPress?: () => void;
 }
 
@@ -14,14 +15,19 @@ export function CardView({
   card,
   revealed = false,
   selected = false,
+  disabled = false,
   onPress,
 }: Props) {
+  const label = revealed ? `${card}, lost` : card;
   const box = (
     <View
+      accessible={!onPress}
+      accessibilityLabel={onPress ? undefined : label}
       style={[
         styles.card,
         selected && styles.selected,
         revealed && styles.revealed,
+        disabled && styles.disabled,
       ]}
     >
       <Text style={[styles.name, revealed && styles.nameRevealed]}>{card}</Text>
@@ -34,7 +40,9 @@ export function CardView({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={card}
+      accessibilityLabel={label}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
     >
       {box}
@@ -56,6 +64,7 @@ const styles = StyleSheet.create({
   },
   selected: { borderColor: colors.primary, borderWidth: 3 },
   revealed: { borderColor: colors.border },
+  disabled: { opacity: 0.35 },
   name: { color: colors.text, fontSize: 14, fontWeight: '700' },
   nameRevealed: { color: colors.muted, textDecorationLine: 'line-through' },
   lost: { color: colors.danger, fontSize: 10, marginTop: 2 },

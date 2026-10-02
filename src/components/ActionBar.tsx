@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ACTION_BUTTON, ACTION_LABEL } from '../engine/describe';
 import { availableActions, livingPlayers, TARGETED } from '../engine/rules';
 import {
@@ -39,7 +39,12 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
         <Text style={styles.prompt}>
           {ACTION_LABEL[targeting]}: choose a target
         </Text>
-        <View style={styles.row}>
+        <ScrollView
+          horizontal
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.row}
+        >
           {opponents.map(id => (
             <Button
               key={id}
@@ -56,7 +61,7 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
             variant="secondary"
             onPress={() => setTargeting(null)}
           />
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -68,7 +73,12 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
           ? 'You have 10 or more coins: you must Coup'
           : 'Your turn: choose an action'}
       </Text>
-      <View style={styles.row}>
+      <ScrollView
+        horizontal
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.row}
+      >
         {actions.map(action => (
           <Button
             key={action}
@@ -81,7 +91,7 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
             }
           />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -93,5 +103,5 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', flexWrap: 'wrap' },
+  row: { flexDirection: 'row', alignItems: 'center' },
 });

@@ -65,7 +65,7 @@ Build:
 npm run build:android
 ```
 
-(Windows shortcut for `cd android; .\gradlew assembleRelease`. It needs the JDK 17 session above.)
+(Windows shortcut for `cd android; .\gradlew.bat assembleRelease`. It needs the JDK 17 session above. On macOS or Linux run `cd android && ./gradlew assembleRelease` instead.)
 
 The APK is at `android/app/build/outputs/apk/release/app-release.apk`. The first build downloads Gradle and the Android dependencies and needs an internet connection.
 

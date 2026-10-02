@@ -50,9 +50,14 @@ describe('assassinate', () => {
       {type: 'block', playerId: 'b', claim: 'Contessa'},
       {type: 'challenge', playerId: 'a'},
     );
-    expect(challenged.state.pending?.loseInfluence).toEqual({playerId: 'b', next: 'resolveAction'});
+    expect(challenged.state.pending?.loseInfluence).toEqual({playerId: 'b', next: 'afterFailedBlock'});
 
-    const done = play(challenged, {type: 'loseInfluence', playerId: 'b', cardIndex: 0});
+    // C had not answered the assassination yet, so C is asked before it resolves.
+    const done = play(
+      challenged,
+      {type: 'loseInfluence', playerId: 'b', cardIndex: 0},
+      {type: 'pass', playerId: 'c'},
+    );
     expect(done.players.b.influence.every(i => i.revealed)).toBe(true);
     expect(done.players.b.eliminatedAt).toBe(1);
     expect(done.state.currentTurnPlayer).toBe('c');
@@ -94,6 +99,21 @@ describe('assassinate', () => {
     expect(done.players.b.influence.some(i => i.revealed)).toBe(false);
     expect(done.players.a.coins).toBe(0);
     expect(done.state.currentTurnPlayer).toBe('b');
+  });
+});
+
+describe('steal', () => {
+  it('takes nothing from a target eliminated while the steal was resolving', () => {
+    const game = makeGame(
+      {a: ['Captain', 'Duke'], b: ['Contessa'], c: ['Ambassador', 'Assassin']},
+      {coins: {b: 5}},
+    );
+    const done = play(game, {type: 'steal', playerId: 'a', target: 'b'}, {type: 'challenge', playerId: 'b'});
+    expect(done.players.b.eliminatedAt).toBe(1);
+    expect(done.players.a.coins).toBe(2);
+    expect(done.players.b.coins).toBe(5);
+    expect(done.status).toBe('playing');
+    expect(done.state.currentTurnPlayer).toBe('c');
   });
 });
 
@@ -150,6 +170,22 @@ describe('exchange', () => {
     );
     expect(() => play(exchanging, {type: 'exchangeChoose', playerId: 'b', keep: [0, 1]})).toThrow(
       'You are not exchanging cards',
+    );
+  });
+
+  it('ends the game at once when the challenger was the last opponent, without an exchange', () => {
+    const game = makeGame({a: ['Ambassador', 'Duke'], b: ['Contessa']});
+    const done = play(game, {type: 'exchange', playerId: 'a'}, {type: 'challenge', playerId: 'b'});
+    expect(done.status).toBe('finished');
+    expect(done.winner).toBe('a');
+    expect(done.state.phase).toBe('finished');
+    expect(done.state.pending).toBeNull();
+  });
+
+  it('rejects a missing keep list with the usual message', () => {
+    const exchanging = toExchange();
+    expect(() => play(exchanging, {type: 'exchangeChoose', playerId: 'a', keep: undefined as any})).toThrow(
+      'Choose exactly 2 card(s)',
     );
   });
 });

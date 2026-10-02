@@ -14,6 +14,7 @@ describe('income', () => {
       turnNumber: 2,
       pending: null,
       lastAction: {playerId: 'a', action: 'income', target: null, blocked: false},
+      claimSeq: 0,
     });
   });
 
@@ -40,6 +41,12 @@ describe('illegal input', () => {
     expect(() => applyAction(game, {type: 'income', playerId: 'a'}, identityRng)).toThrow(
       'Game is not in progress',
     );
+  });
+
+  it('ignores a stray target on an untargeted action', () => {
+    const declared = applyAction(three(), {type: 'tax', playerId: 'a', target: 'zzz'} as any, identityRng);
+    expect(declared.state.pending?.target).toBeNull();
+    expect(declared.state.lastAction?.target).toBeNull();
   });
 
   it('throws an error named IllegalActionError', () => {

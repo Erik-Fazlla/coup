@@ -1,3 +1,5 @@
+import { applyAction } from '../actions';
+import { shuffle } from '../deck';
 import { pendingResponders, responseOptions } from '../rules';
 import { makeGame, play } from '../testHelpers';
 
@@ -194,6 +196,21 @@ describe('exchange', () => {
     ]);
     expect(done.deck).toEqual(['Captain', 'Ambassador', 'Duke']);
     expect(done.state.currentTurnPlayer).toBe('b');
+  });
+
+  it('shuffles the returned cards into the deck with the injected rng', () => {
+    const rng = jest.fn(() => 0);
+    const done = applyAction(
+      toExchange(),
+      { type: 'exchangeChoose', playerId: 'a', keep: [0, 1] },
+      rng,
+    );
+
+    const unshuffled = ['Captain', 'Contessa', 'Assassin'];
+    const expected = shuffle(unshuffled, () => 0);
+    expect(expected).not.toEqual(unshuffled);
+    expect(rng).toHaveBeenCalled();
+    expect(done.deck).toEqual(expected);
   });
 
   it('keeps exactly one card when the player has one hidden card', () => {

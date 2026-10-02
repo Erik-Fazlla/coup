@@ -1,3 +1,5 @@
+import { applyAction } from '../actions';
+import { shuffle } from '../deck';
 import { statusLine } from '../describe';
 import { pendingResponders, responseOptions } from '../rules';
 import { makeGame, play } from '../testHelpers';
@@ -36,6 +38,34 @@ describe('challenging an action', () => {
     expect(done.players.b.influence[0].revealed).toBe(true);
     expect(done.players.a.coins).toBe(5);
     expect(done.state.currentTurnPlayer).toBe('b');
+  });
+
+  it('shuffles the proven card into the deck with the injected rng', () => {
+    const game = makeGame(
+      {
+        a: ['Duke', 'Captain'],
+        b: ['Contessa', 'Assassin'],
+        c: ['Ambassador', 'Duke'],
+      },
+      { deck: ['Contessa', 'Assassin', 'Captain'] },
+    );
+    const declared = play(game, { type: 'tax', playerId: 'a' });
+    const rng = jest.fn(() => 0);
+    const challenged = applyAction(
+      declared,
+      { type: 'challenge', playerId: 'b', seq: declared.state.claimSeq },
+      rng,
+    );
+
+    const unshuffled = ['Contessa', 'Assassin', 'Captain', 'Duke'];
+    const expected = shuffle(unshuffled, () => 0);
+    expect(expected).not.toEqual(unshuffled);
+    expect(rng).toHaveBeenCalled();
+    expect(challenged.players.a.influence[0]).toEqual({
+      card: expected[0],
+      revealed: false,
+    });
+    expect(challenged.deck).toEqual(expected.slice(1));
   });
 
   it('costs the actor a card and cancels the action when the claim is a bluff', () => {

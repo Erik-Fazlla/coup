@@ -3,9 +3,21 @@ import { Game, IllegalActionError, Player } from './types';
 
 export const MAX_PLAYERS = 6;
 export const MIN_PLAYERS = 2;
+export const MAX_NAME_LENGTH = 16;
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 5;
+
+/** Trims the name and checks it is 1 to MAX_NAME_LENGTH characters. */
+function cleanName(name: unknown): string {
+  const trimmed = typeof name === 'string' ? name.trim() : '';
+  if (trimmed.length === 0 || trimmed.length > MAX_NAME_LENGTH) {
+    throw new IllegalActionError(
+      `Enter a name (1-${MAX_NAME_LENGTH} characters)`,
+    );
+  }
+  return trimmed;
+}
 
 function newPlayer(name: string): Player {
   return { name, coins: 2, influence: [], eliminatedAt: null };
@@ -29,12 +41,13 @@ export function newGame(
   code: string,
   now: number,
 ): Game {
+  const name = cleanName(hostName);
   return {
     host: hostId,
     code,
     status: 'waiting',
     playerOrder: [hostId],
-    players: { [hostId]: newPlayer(hostName) },
+    players: { [hostId]: newPlayer(name) },
     deck: [],
     state: {
       phase: 'action',
@@ -54,6 +67,7 @@ export function addPlayer(game: Game, playerId: string, name: string): Game {
   if (game.players[playerId]) {
     return game;
   }
+  const cleaned = cleanName(name);
   if (game.status !== 'waiting') {
     throw new IllegalActionError('Game already started');
   }
@@ -62,7 +76,7 @@ export function addPlayer(game: Game, playerId: string, name: string): Game {
   }
   const next = clone(game);
   next.playerOrder.push(playerId);
-  next.players[playerId] = newPlayer(name);
+  next.players[playerId] = newPlayer(cleaned);
   return next;
 }
 

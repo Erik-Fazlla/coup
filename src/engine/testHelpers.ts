@@ -85,10 +85,23 @@ function withSeq(game: Game, action: LooseAction): GameAction {
   return action as GameAction;
 }
 
-/** Applies actions in order with the identity rng, filling in a missing `seq` with the current `claimSeq`. */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    Object.values(value as object).forEach(deepFreeze);
+  }
+  return value;
+}
+
+/**
+ * Applies actions in order with the identity rng, filling in a missing `seq` with the current `claimSeq`.
+ * Every state is deep-frozen before it reaches `applyAction`, so any mutation of an input game throws.
+ * That includes `game` itself: build and tweak it before calling `play`, not after.
+ */
 export function play(game: Game, ...actions: LooseAction[]): Game {
   return actions.reduce(
-    (state, action) => applyAction(state, withSeq(state, action), identityRng),
+    (state, action) =>
+      applyAction(deepFreeze(state), withSeq(state, action), identityRng),
     game,
   );
 }

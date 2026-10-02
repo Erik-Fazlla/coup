@@ -526,11 +526,14 @@ describe('multiplayer sync', () => {
 
   it('keeps both responses when two clients respond at the same moment', async () => {
     await second.service.dispatch(gameId, {type: 'foreignAid', playerId: 'p2'});
-    await Promise.all(everyone.map(c => seen(c.service, gameId, g => g.state.phase === 'awaitingResponses')));
+    const asked = await Promise.all(
+      everyone.map(c => seen(c.service, gameId, g => g.state.phase === 'awaitingResponses')),
+    );
+    const seq = asked[0].state.claimSeq;
 
     await Promise.all([
-      host.service.dispatch(gameId, {type: 'pass', playerId: 'h'}),
-      third.service.dispatch(gameId, {type: 'pass', playerId: 'p3'}),
+      host.service.dispatch(gameId, {type: 'pass', playerId: 'h', seq}),
+      third.service.dispatch(gameId, {type: 'pass', playerId: 'p3', seq}),
     ]);
 
     const games = await Promise.all(
@@ -1410,6 +1413,8 @@ export function ResponsePrompt({game, playerId, disabled, onAction}: Props) {
   if (!options) {
     return null;
   }
+  // Ties the tap to the prompt on screen: the engine rejects it if the game has moved on meanwhile.
+  const seq = game.state.claimSeq;
   return (
     <View>
       <Text style={styles.prompt}>{promptLine(game)}</Text>
@@ -1418,14 +1423,14 @@ export function ResponsePrompt({game, playerId, disabled, onAction}: Props) {
           label="Pass"
           variant="secondary"
           disabled={disabled}
-          onPress={() => onAction({type: 'pass', playerId})}
+          onPress={() => onAction({type: 'pass', playerId, seq})}
         />
         {options.canChallenge && (
           <Button
             label="Challenge"
             variant="danger"
             disabled={disabled}
-            onPress={() => onAction({type: 'challenge', playerId})}
+            onPress={() => onAction({type: 'challenge', playerId, seq})}
           />
         )}
         {options.blockClaims.map(claim => (
@@ -1433,7 +1438,7 @@ export function ResponsePrompt({game, playerId, disabled, onAction}: Props) {
             key={claim}
             label={`Block as ${claim}`}
             disabled={disabled}
-            onPress={() => onAction({type: 'block', playerId, claim})}
+            onPress={() => onAction({type: 'block', playerId, claim, seq})}
           />
         ))}
       </View>

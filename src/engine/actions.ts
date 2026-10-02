@@ -7,9 +7,11 @@ import {
   TARGETED,
   isAlive,
   livingPlayers,
+  pendingResponders,
+  responseOptions,
   unrevealedCount,
 } from './rules';
-import {Continuation, DeclareAction, Game, GameAction, IllegalActionError} from './types';
+import {Card, Continuation, DeclareAction, Game, GameAction, IllegalActionError} from './types';
 
 const MAX_LOG = 30;
 
@@ -184,6 +186,37 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
   g.state.phase = 'awaitingResponses';
 }
 
+function pass(g: Game, playerId: string, rng: Rng): void {
+  if (!pendingResponders(g).includes(playerId)) {
+    fail('You have nothing to respond to');
+  }
+  const pending = g.state.pending!;
+  if (g.state.phase === 'awaitingBlockResponses') {
+    const block = pending.block!;
+    block.responses[playerId] = 'pass';
+    if (pendingResponders(g).length === 0) {
+      g.state.lastAction!.blocked = true;
+      log(g, `${nameOf(g, block.blocker)} blocks with ${block.claim}`);
+      endTurn(g);
+    }
+    return;
+  }
+  pending.responses[playerId] = 'pass';
+  if (pendingResponders(g).length === 0) {
+    resolveAction(g, rng);
+  }
+}
+
+function block(g: Game, playerId: string, claim: Card): void {
+  const options = responseOptions(g, playerId);
+  if (!options || !options.blockClaims.includes(claim)) {
+    fail('You cannot block now');
+  }
+  g.state.pending!.block = {blocker: playerId, claim, responses: {}};
+  g.state.phase = 'awaitingBlockResponses';
+  log(g, `${nameOf(g, playerId)} claims ${claim} to block`);
+}
+
 /**
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
@@ -218,6 +251,12 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
       runContinuation(g, waiting.next, rng);
       break;
     }
+    case 'pass':
+      pass(g, id, rng);
+      break;
+    case 'block':
+      block(g, id, action.claim);
+      break;
     default:
       fail('Unknown action');
   }

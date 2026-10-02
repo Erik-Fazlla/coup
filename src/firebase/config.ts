@@ -13,5 +13,8 @@ export const firebaseConfig = {
 };
 
 export function isConfigured(): boolean {
-  return !firebaseConfig.apiKey.startsWith('YOUR_') && !firebaseConfig.databaseURL.includes('YOUR_');
+  return (
+    !firebaseConfig.apiKey.startsWith('YOUR_') &&
+    !firebaseConfig.databaseURL.includes('YOUR_')
+  );
 }

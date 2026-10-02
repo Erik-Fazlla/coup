@@ -1,5 +1,5 @@
-import {pendingResponders} from './rules';
-import {ActionType, Game, Pending} from './types';
+import { pendingResponders } from './rules';
+import { ActionType, Game, Pending } from './types';
 
 export const ACTION_LABEL: Record<ActionType, string> = {
   income: 'Income',
@@ -33,7 +33,7 @@ function actionText(game: Game, pending: Pending): string {
 
 /** One line for the centre of the board: what the table is waiting for. */
 export function statusLine(game: Game): string {
-  const {phase, pending, currentTurnPlayer} = game.state;
+  const { phase, pending, currentTurnPlayer } = game.state;
   if (phase === 'finished') {
     return `${nameOf(game, game.winner)} wins`;
   }
@@ -44,10 +44,15 @@ export function statusLine(game: Game): string {
     .map(id => nameOf(game, id))
     .join(', ');
   if (phase === 'awaitingResponses') {
-    return `${nameOf(game, pending.actor)}: ${actionText(game, pending)}. Waiting for ${waiting}`;
+    return `${nameOf(game, pending.actor)}: ${actionText(
+      game,
+      pending,
+    )}. Waiting for ${waiting}`;
   }
   if (phase === 'awaitingBlockResponses' && pending.block) {
-    return `${nameOf(game, pending.block.blocker)} blocks with ${pending.block.claim}. Waiting for ${waiting}`;
+    return `${nameOf(game, pending.block.blocker)} blocks with ${
+      pending.block.claim
+    }. Waiting for ${waiting}`;
   }
   if (phase === 'loseInfluence' && pending.loseInfluence) {
     return `${nameOf(game, pending.loseInfluence.playerId)} must lose a card`;
@@ -57,14 +62,14 @@ export function statusLine(game: Game): string {
 
 /** What a responding player is being asked about. Empty when nothing is pending. */
 export function promptLine(game: Game): string {
-  const {phase, pending} = game.state;
+  const { phase, pending } = game.state;
   if (!pending) {
     return '';
   }
   if (phase === 'awaitingBlockResponses' && pending.block) {
-    return `${nameOf(game, pending.block.blocker)} claims ${pending.block.claim} to block ${
-      ACTION_LABEL[pending.action]
-    }`;
+    return `${nameOf(game, pending.block.blocker)} claims ${
+      pending.block.claim
+    } to block ${ACTION_LABEL[pending.action]}`;
   }
   const actor = nameOf(game, pending.actor);
   return pending.claim

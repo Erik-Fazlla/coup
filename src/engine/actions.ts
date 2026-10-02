@@ -1,4 +1,4 @@
-import {Rng, shuffle} from './deck';
+import { Rng, shuffle } from './deck';
 import {
   ACTION_CLAIM,
   ACTION_COST,
@@ -11,7 +11,14 @@ import {
   responseOptions,
   unrevealedCount,
 } from './rules';
-import {Card, Continuation, DeclareAction, Game, GameAction, IllegalActionError} from './types';
+import {
+  Card,
+  Continuation,
+  DeclareAction,
+  Game,
+  GameAction,
+  IllegalActionError,
+} from './types';
 
 const MAX_LOG = 30;
 
@@ -32,7 +39,9 @@ function log(g: Game, message: string): void {
 }
 
 function hiddenIndexes(g: Game, playerId: string): number[] {
-  return g.players[playerId].influence.map((inf, i) => (inf.revealed ? -1 : i)).filter(i => i >= 0);
+  return g.players[playerId].influence
+    .map((inf, i) => (inf.revealed ? -1 : i))
+    .filter(i => i >= 0);
 }
 
 function reveal(g: Game, playerId: string, cardIndex: number): void {
@@ -87,7 +96,9 @@ function resolveAction(g: Game, rng: Rng): void {
       return endTurn(g);
     case 'steal': {
       const target = g.players[pending.target!];
-      const amount = isAlive(g, pending.target!) ? Math.min(2, target.coins) : 0;
+      const amount = isAlive(g, pending.target!)
+        ? Math.min(2, target.coins)
+        : 0;
       target.coins -= amount;
       actor.coins += amount;
       log(g, `${actor.name} steals ${amount} from ${target.name}`);
@@ -129,7 +140,9 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
   // afterFailedChallenge: the claim was proven, but the target may still block.
   const pending = g.state.pending!;
   const targetMayBlock =
-    BLOCK_CLAIMS[pending.action].length > 0 && pending.target !== null && isAlive(g, pending.target);
+    BLOCK_CLAIMS[pending.action].length > 0 &&
+    pending.target !== null &&
+    isAlive(g, pending.target);
   if (targetMayBlock) {
     pending.challengeResolved = true;
     pending.responses = {};
@@ -141,7 +154,12 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
 }
 
 /** Makes a player lose one influence, asking them to choose when they still hold two. */
-function requireLoseInfluence(g: Game, playerId: string, next: Continuation, rng: Rng): void {
+function requireLoseInfluence(
+  g: Game,
+  playerId: string,
+  next: Continuation,
+  rng: Rng,
+): void {
   const hidden = hiddenIndexes(g, playerId);
   if (hidden.length === 0) {
     return runContinuation(g, next, rng);
@@ -150,12 +168,12 @@ function requireLoseInfluence(g: Game, playerId: string, next: Continuation, rng
     reveal(g, playerId, hidden[0]);
     return runContinuation(g, next, rng);
   }
-  g.state.pending!.loseInfluence = {playerId, next};
+  g.state.pending!.loseInfluence = { playerId, next };
   g.state.phase = 'loseInfluence';
 }
 
 function declare(g: Game, action: DeclareAction, rng: Rng): void {
-  const {type, playerId} = action;
+  const { type, playerId } = action;
   if (g.state.phase !== 'action' || g.state.currentTurnPlayer !== playerId) {
     fail('It is not your turn');
   }
@@ -166,13 +184,17 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
   if (actor.coins < ACTION_COST[type]) {
     fail('Not enough coins');
   }
-  const target = TARGETED.includes(type) && 'target' in action ? action.target : null;
-  if (TARGETED.includes(type) && (!target || target === playerId || !isAlive(g, target))) {
+  const target =
+    TARGETED.includes(type) && 'target' in action ? action.target : null;
+  if (
+    TARGETED.includes(type) &&
+    (!target || target === playerId || !isAlive(g, target))
+  ) {
     fail('Choose a living opponent');
   }
 
   actor.coins -= ACTION_COST[type];
-  g.state.lastAction = {playerId, action: type, target, blocked: false};
+  g.state.lastAction = { playerId, action: type, target, blocked: false };
 
   if (type === 'income') {
     actor.coins += 1;
@@ -213,7 +235,10 @@ function pass(g: Game, playerId: string, rng: Rng): void {
     activeBlock.responses[playerId] = 'pass';
     if (pendingResponders(g).length === 0) {
       g.state.lastAction!.blocked = true;
-      log(g, `${nameOf(g, activeBlock.blocker)} blocks with ${activeBlock.claim}`);
+      log(
+        g,
+        `${nameOf(g, activeBlock.blocker)} blocks with ${activeBlock.claim}`,
+      );
       endTurn(g);
     }
     return;
@@ -229,7 +254,7 @@ function block(g: Game, playerId: string, claim: Card): void {
   if (!options || !options.blockClaims.includes(claim)) {
     fail('You cannot block now');
   }
-  g.state.pending!.block = {blocker: playerId, claim, responses: {}};
+  g.state.pending!.block = { blocker: playerId, claim, responses: {} };
   g.state.phase = 'awaitingBlockResponses';
   g.state.claimSeq += 1;
   log(g, `${nameOf(g, playerId)} claims ${claim} to block`);
@@ -237,14 +262,21 @@ function block(g: Game, playerId: string, claim: Card): void {
 
 /** Index of a hidden copy of `card` in the player's hand, or -1. */
 function hiddenCardIndex(g: Game, playerId: string, card: Card): number {
-  return g.players[playerId].influence.findIndex(inf => !inf.revealed && inf.card === card);
+  return g.players[playerId].influence.findIndex(
+    inf => !inf.revealed && inf.card === card,
+  );
 }
 
 /** A proven card goes back into the deck and is replaced by a fresh draw. */
-function swapProvenCard(g: Game, playerId: string, cardIndex: number, rng: Rng): void {
+function swapProvenCard(
+  g: Game,
+  playerId: string,
+  cardIndex: number,
+  rng: Rng,
+): void {
   const player = g.players[playerId];
   const deck = shuffle([...g.deck, player.influence[cardIndex].card], rng);
-  player.influence[cardIndex] = {card: deck.shift()!, revealed: false};
+  player.influence[cardIndex] = { card: deck.shift()!, revealed: false };
   g.deck = deck;
 }
 
@@ -261,7 +293,10 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
     const blocker = nameOf(g, blockClaim.blocker);
     const index = hiddenCardIndex(g, blockClaim.blocker, blockClaim.claim);
     if (index >= 0) {
-      log(g, `${challenger} challenges ${blocker}, who shows ${blockClaim.claim}`);
+      log(
+        g,
+        `${challenger} challenges ${blocker}, who shows ${blockClaim.claim}`,
+      );
       swapProvenCard(g, blockClaim.blocker, index, rng);
       g.state.lastAction!.blocked = true;
       return requireLoseInfluence(g, challengerId, 'endTurn', rng);
@@ -286,9 +321,19 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
   requireLoseInfluence(g, pending.actor, 'endTurn', rng);
 }
 
-function exchangeChoose(g: Game, playerId: string, keep: number[], rng: Rng): void {
+function exchangeChoose(
+  g: Game,
+  playerId: string,
+  keep: number[],
+  rng: Rng,
+): void {
   const pending = g.state.pending;
-  if (g.state.phase !== 'exchange' || !pending || pending.actor !== playerId || !pending.exchangeOptions) {
+  if (
+    g.state.phase !== 'exchange' ||
+    !pending ||
+    pending.actor !== playerId ||
+    !pending.exchangeOptions
+  ) {
     fail('You are not exchanging cards');
   }
   const options = pending.exchangeOptions;
@@ -303,7 +348,7 @@ function exchangeChoose(g: Game, playerId: string, keep: number[], rng: Rng): vo
   }
   const actor = g.players[playerId];
   slots.forEach((slot, n) => {
-    actor.influence[slot] = {card: options[keep[n]], revealed: false};
+    actor.influence[slot] = { card: options[keep[n]], revealed: false };
   });
   const returned = options.filter((_, i) => !keep.includes(i));
   g.deck = shuffle([...g.deck, ...returned], rng);
@@ -315,7 +360,11 @@ function exchangeChoose(g: Game, playerId: string, keep: number[], rng: Rng): vo
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
  */
-export function applyAction(game: Game, action: GameAction, rng: Rng = Math.random): Game {
+export function applyAction(
+  game: Game,
+  action: GameAction,
+  rng: Rng = Math.random,
+): Game {
   if (game.status !== 'playing') {
     fail('Game is not in progress');
   }
@@ -323,7 +372,9 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
     fail('You are not in this game');
   }
   if (
-    (action.type === 'pass' || action.type === 'challenge' || action.type === 'block') &&
+    (action.type === 'pass' ||
+      action.type === 'challenge' ||
+      action.type === 'block') &&
     action.seq !== game.state.claimSeq
   ) {
     fail('Too late: the game has moved on');
@@ -343,7 +394,11 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
       break;
     case 'loseInfluence': {
       const waiting = g.state.pending?.loseInfluence;
-      if (g.state.phase !== 'loseInfluence' || !waiting || waiting.playerId !== id) {
+      if (
+        g.state.phase !== 'loseInfluence' ||
+        !waiting ||
+        waiting.playerId !== id
+      ) {
         fail('You do not need to lose a card');
       }
       reveal(g, id, action.cardIndex);

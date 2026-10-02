@@ -1,4 +1,4 @@
-import {Card, CARDS} from './types';
+import { Card, CARDS } from './types';
 
 /** Returns a number in [0, 1). Injected so tests are deterministic. */
 export type Rng = () => number;

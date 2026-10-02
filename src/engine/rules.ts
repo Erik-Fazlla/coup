@@ -1,4 +1,4 @@
-import {ActionType, Card, Game, Player} from './types';
+import { ActionType, Card, Game, Player } from './types';
 
 export const FORCED_COUP_COINS = 10;
 
@@ -51,20 +51,26 @@ export function livingPlayers(game: Game): string[] {
 
 /** Actions the player may declare right now. Empty when it is not their turn to act. */
 export function availableActions(game: Game, playerId: string): ActionType[] {
-  const {phase, currentTurnPlayer} = game.state;
-  if (game.status !== 'playing' || phase !== 'action' || currentTurnPlayer !== playerId) {
+  const { phase, currentTurnPlayer } = game.state;
+  if (
+    game.status !== 'playing' ||
+    phase !== 'action' ||
+    currentTurnPlayer !== playerId
+  ) {
     return [];
   }
   const coins = game.players[playerId].coins;
   if (coins >= FORCED_COUP_COINS) {
     return ['coup'];
   }
-  return (Object.keys(ACTION_COST) as ActionType[]).filter(action => coins >= ACTION_COST[action]);
+  return (Object.keys(ACTION_COST) as ActionType[]).filter(
+    action => coins >= ACTION_COST[action],
+  );
 }
 
 /** Players who still have to pass, challenge or block before the game can continue. */
 export function pendingResponders(game: Game): string[] {
-  const {phase, pending} = game.state;
+  const { phase, pending } = game.state;
   if (!pending) {
     return [];
   }
@@ -78,7 +84,9 @@ export function pendingResponders(game: Game): string[] {
   }
   if (phase === 'awaitingBlockResponses' && pending.block) {
     const block = pending.block;
-    return livingPlayers(game).filter(id => id !== block.blocker && !block.responses[id]);
+    return livingPlayers(game).filter(
+      id => id !== block.blocker && !block.responses[id],
+    );
   }
   return [];
 }
@@ -89,16 +97,21 @@ export interface ResponseOptions {
 }
 
 /** What the player may do besides passing, or null when they are not being asked. */
-export function responseOptions(game: Game, playerId: string): ResponseOptions | null {
+export function responseOptions(
+  game: Game,
+  playerId: string,
+): ResponseOptions | null {
   const pending = game.state.pending;
   if (!pending || !pendingResponders(game).includes(playerId)) {
     return null;
   }
   if (game.state.phase === 'awaitingBlockResponses') {
-    return {canChallenge: true, blockClaims: []};
+    return { canChallenge: true, blockClaims: [] };
   }
   const claims = BLOCK_CLAIMS[pending.action];
-  const mayBlock = claims.length > 0 && (pending.action === 'foreignAid' || pending.target === playerId);
+  const mayBlock =
+    claims.length > 0 &&
+    (pending.action === 'foreignAid' || pending.target === playerId);
   return {
     canChallenge: pending.claim !== null && !pending.challengeResolved,
     blockClaims: mayBlock ? claims : [],

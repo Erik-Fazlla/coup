@@ -1,6 +1,12 @@
 export type Card = 'Duke' | 'Assassin' | 'Captain' | 'Ambassador' | 'Contessa';
 
-export const CARDS: Card[] = ['Duke', 'Assassin', 'Captain', 'Ambassador', 'Contessa'];
+export const CARDS: Card[] = [
+  'Duke',
+  'Assassin',
+  'Captain',
+  'Ambassador',
+  'Contessa',
+];
 
 export type UntargetedAction = 'income' | 'foreignAid' | 'tax' | 'exchange';
 export type TargetedAction = 'coup' | 'assassinate' | 'steal';
@@ -17,7 +23,11 @@ export type Phase =
   | 'finished';
 
 /** What happens after a player finishes losing an influence. */
-export type Continuation = 'endTurn' | 'resolveAction' | 'afterFailedChallenge' | 'afterFailedBlock';
+export type Continuation =
+  | 'endTurn'
+  | 'resolveAction'
+  | 'afterFailedChallenge'
+  | 'afterFailedBlock';
 
 export interface Influence {
   card: Card;
@@ -46,7 +56,7 @@ export interface Pending {
   /** True once a challenge against the action has failed; only a block by the target remains possible. */
   challengeResolved: boolean;
   block: Block | null;
-  loseInfluence: {playerId: string; next: Continuation} | null;
+  loseInfluence: { playerId: string; next: Continuation } | null;
   exchangeOptions: Card[] | null;
 }
 
@@ -81,15 +91,15 @@ export interface Game {
 }
 
 export type GameAction =
-  | {type: UntargetedAction; playerId: string}
-  | {type: TargetedAction; playerId: string; target: string}
-  | {type: 'pass'; playerId: string; seq: number}
-  | {type: 'challenge'; playerId: string; seq: number}
-  | {type: 'block'; playerId: string; claim: Card; seq: number}
-  | {type: 'loseInfluence'; playerId: string; cardIndex: number}
-  | {type: 'exchangeChoose'; playerId: string; keep: number[]};
+  | { type: UntargetedAction; playerId: string }
+  | { type: TargetedAction; playerId: string; target: string }
+  | { type: 'pass'; playerId: string; seq: number }
+  | { type: 'challenge'; playerId: string; seq: number }
+  | { type: 'block'; playerId: string; claim: Card; seq: number }
+  | { type: 'loseInfluence'; playerId: string; cardIndex: number }
+  | { type: 'exchangeChoose'; playerId: string; keep: number[] };
 
-export type DeclareAction = Extract<GameAction, {type: ActionType}>;
+export type DeclareAction = Extract<GameAction, { type: ActionType }>;
 
 export class IllegalActionError extends Error {
   constructor(message: string) {

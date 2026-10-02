@@ -1,5 +1,5 @@
-import {buildDeck, Rng, shuffle} from './deck';
-import {Game, IllegalActionError, Player} from './types';
+import { buildDeck, Rng, shuffle } from './deck';
+import { Game, IllegalActionError, Player } from './types';
 
 export const MAX_PLAYERS = 6;
 export const MIN_PLAYERS = 2;
@@ -8,7 +8,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 5;
 
 function newPlayer(name: string): Player {
-  return {name, coins: 2, influence: [], eliminatedAt: null};
+  return { name, coins: 2, influence: [], eliminatedAt: null };
 }
 
 function clone(game: Game): Game {
@@ -23,15 +23,27 @@ export function generateCode(rng: Rng): string {
   return code;
 }
 
-export function newGame(hostId: string, hostName: string, code: string, now: number): Game {
+export function newGame(
+  hostId: string,
+  hostName: string,
+  code: string,
+  now: number,
+): Game {
   return {
     host: hostId,
     code,
     status: 'waiting',
     playerOrder: [hostId],
-    players: {[hostId]: newPlayer(hostName)},
+    players: { [hostId]: newPlayer(hostName) },
     deck: [],
-    state: {phase: 'action', currentTurnPlayer: hostId, turnNumber: 0, pending: null, lastAction: null, claimSeq: 0},
+    state: {
+      phase: 'action',
+      currentTurnPlayer: hostId,
+      turnNumber: 0,
+      pending: null,
+      lastAction: null,
+      claimSeq: 0,
+    },
     log: [],
     winner: null,
     createdAt: now,
@@ -55,7 +67,11 @@ export function addPlayer(game: Game, playerId: string, name: string): Game {
 }
 
 export function removePlayer(game: Game, playerId: string): Game {
-  if (game.status !== 'waiting' || playerId === game.host || !game.players[playerId]) {
+  if (
+    game.status !== 'waiting' ||
+    playerId === game.host ||
+    !game.players[playerId]
+  ) {
     return game;
   }
   const next = clone(game);
@@ -80,8 +96,8 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
     next.players[id].coins = 2;
     next.players[id].eliminatedAt = null;
     next.players[id].influence = [
-      {card: deck.shift()!, revealed: false},
-      {card: deck.shift()!, revealed: false},
+      { card: deck.shift()!, revealed: false },
+      { card: deck.shift()!, revealed: false },
     ];
   });
   next.deck = deck;

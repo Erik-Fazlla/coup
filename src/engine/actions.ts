@@ -1,4 +1,4 @@
-import {Rng} from './deck';
+import {Rng, shuffle} from './deck';
 import {
   ACTION_CLAIM,
   ACTION_COST,
@@ -217,6 +217,56 @@ function block(g: Game, playerId: string, claim: Card): void {
   log(g, `${nameOf(g, playerId)} claims ${claim} to block`);
 }
 
+/** Index of a hidden copy of `card` in the player's hand, or -1. */
+function hiddenCardIndex(g: Game, playerId: string, card: Card): number {
+  return g.players[playerId].influence.findIndex(inf => !inf.revealed && inf.card === card);
+}
+
+/** A proven card goes back into the deck and is replaced by a fresh draw. */
+function swapProvenCard(g: Game, playerId: string, cardIndex: number, rng: Rng): void {
+  const player = g.players[playerId];
+  const deck = shuffle([...g.deck, player.influence[cardIndex].card], rng);
+  player.influence[cardIndex] = {card: deck.shift()!, revealed: false};
+  g.deck = deck;
+}
+
+function challenge(g: Game, challengerId: string, rng: Rng): void {
+  const options = responseOptions(g, challengerId);
+  if (!options || !options.canChallenge) {
+    fail('You cannot challenge now');
+  }
+  const pending = g.state.pending!;
+  const challenger = nameOf(g, challengerId);
+
+  if (g.state.phase === 'awaitingBlockResponses') {
+    const blockClaim = pending.block!;
+    const blocker = nameOf(g, blockClaim.blocker);
+    const index = hiddenCardIndex(g, blockClaim.blocker, blockClaim.claim);
+    if (index >= 0) {
+      log(g, `${challenger} challenges ${blocker}, who shows ${blockClaim.claim}`);
+      swapProvenCard(g, blockClaim.blocker, index, rng);
+      g.state.lastAction!.blocked = true;
+      return requireLoseInfluence(g, challengerId, 'endTurn', rng);
+    }
+    log(g, `${challenger} challenges ${blocker}, who was bluffing`);
+    pending.block = null;
+    return requireLoseInfluence(g, blockClaim.blocker, 'resolveAction', rng);
+  }
+
+  const claim = pending.claim!;
+  const actor = nameOf(g, pending.actor);
+  const index = hiddenCardIndex(g, pending.actor, claim);
+  if (index >= 0) {
+    log(g, `${challenger} challenges ${actor}, who shows ${claim}`);
+    swapProvenCard(g, pending.actor, index, rng);
+    return requireLoseInfluence(g, challengerId, 'afterFailedChallenge', rng);
+  }
+  log(g, `${challenger} challenges ${actor}, who was bluffing`);
+  // The action never happened, so anything paid for it is returned.
+  g.players[pending.actor].coins += ACTION_COST[pending.action];
+  requireLoseInfluence(g, pending.actor, 'endTurn', rng);
+}
+
 /**
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
@@ -256,6 +306,9 @@ export function applyAction(game: Game, action: GameAction, rng: Rng = Math.rand
       break;
     case 'block':
       block(g, id, action.claim);
+      break;
+    case 'challenge':
+      challenge(g, id, rng);
       break;
     default:
       fail('Unknown action');

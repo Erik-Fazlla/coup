@@ -57,7 +57,10 @@ export function statusLine(game: Game): string {
   if (phase === 'loseInfluence' && pending.loseInfluence) {
     return `${nameOf(game, pending.loseInfluence.playerId)} must lose a card`;
   }
-  return `${nameOf(game, pending.actor)} is exchanging cards`;
+  if (phase === 'exchange') {
+    return `${nameOf(game, pending.actor)} is exchanging cards`;
+  }
+  return `${nameOf(game, currentTurnPlayer)}'s turn`;
 }
 
 /** What a responding player is being asked about. Empty when nothing is pending. */

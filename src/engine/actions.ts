@@ -80,12 +80,10 @@ function endTurn(g: Game): void {
 
 /** Carries out the declared action once nobody can stop it any more. */
 function resolveAction(g: Game, rng: Rng): void {
-  if (livingPlayers(g).length === 1) {
-    return endTurn(g);
-  }
   const pending = g.state.pending!;
   const actor = g.players[pending.actor];
-  switch (pending.action) {
+  const action = pending.action;
+  switch (action) {
     case 'foreignAid':
       actor.coins += 2;
       log(g, `${actor.name} takes foreign aid`);
@@ -113,8 +111,14 @@ function resolveAction(g: Game, rng: Rng): void {
       g.state.phase = 'exchange';
       return;
     }
-    default:
+    // Income and Coup finish inside `declare` and never become pending responses.
+    case 'income':
+    case 'coup':
       return endTurn(g);
+    default: {
+      const unreachable: never = action;
+      return unreachable;
+    }
   }
 }
 
@@ -122,35 +126,41 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
   if (livingPlayers(g).length === 1) {
     return endTurn(g);
   }
-  if (next === 'endTurn') {
-    return endTurn(g);
-  }
-  if (next === 'resolveAction') {
-    return resolveAction(g, rng);
-  }
-  if (next === 'afterFailedBlock') {
-    // The block was a bluff: whoever had not yet answered the action still gets their say.
-    g.state.phase = 'awaitingResponses';
-    if (pendingResponders(g).length > 0) {
-      g.state.claimSeq += 1;
-      return;
+  switch (next) {
+    case 'endTurn':
+      return endTurn(g);
+    case 'resolveAction':
+      return resolveAction(g, rng);
+    case 'afterFailedBlock': {
+      // The block was a bluff: whoever had not yet answered the action still gets their say.
+      g.state.phase = 'awaitingResponses';
+      if (pendingResponders(g).length > 0) {
+        g.state.claimSeq += 1;
+        return;
+      }
+      return resolveAction(g, rng);
     }
-    return resolveAction(g, rng);
+    case 'afterFailedChallenge': {
+      // The claim was proven, but the target may still block.
+      const pending = g.state.pending!;
+      const targetMayBlock =
+        BLOCK_CLAIMS[pending.action].length > 0 &&
+        pending.target !== null &&
+        isAlive(g, pending.target);
+      if (targetMayBlock) {
+        pending.challengeResolved = true;
+        pending.responses = {};
+        g.state.phase = 'awaitingResponses';
+        g.state.claimSeq += 1;
+        return;
+      }
+      return resolveAction(g, rng);
+    }
+    default: {
+      const unreachable: never = next;
+      return unreachable;
+    }
   }
-  // afterFailedChallenge: the claim was proven, but the target may still block.
-  const pending = g.state.pending!;
-  const targetMayBlock =
-    BLOCK_CLAIMS[pending.action].length > 0 &&
-    pending.target !== null &&
-    isAlive(g, pending.target);
-  if (targetMayBlock) {
-    pending.challengeResolved = true;
-    pending.responses = {};
-    g.state.phase = 'awaitingResponses';
-    g.state.claimSeq += 1;
-    return;
-  }
-  resolveAction(g, rng);
 }
 
 /** Makes a player lose one influence, asking them to choose when they still hold two. */
@@ -359,12 +369,10 @@ function exchangeChoose(
 /**
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
+ * Expects a game produced by `normalizeGame` or by the engine itself.
+ * `rng` is required so every shuffle is injected and tests stay deterministic.
  */
-export function applyAction(
-  game: Game,
-  action: GameAction,
-  rng: Rng = Math.random,
-): Game {
+export function applyAction(game: Game, action: GameAction, rng: Rng): Game {
   if (game.status !== 'playing') {
     fail('Game is not in progress');
   }

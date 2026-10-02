@@ -1,11 +1,12 @@
 import {
   addPlayer,
   generateCode,
+  MAX_NAME_LENGTH,
   newGame,
   removePlayer,
   startGame,
 } from '../lobby';
-import { Game } from '../types';
+import { Game, IllegalActionError } from '../types';
 
 const identityRng = () => 0.999999;
 
@@ -17,7 +18,40 @@ function lobby(playerCount: number): Game {
   return game;
 }
 
+const NAME_ERROR = 'Enter a name (1-16 characters)';
+const invalidNames: [string, unknown][] = [
+  ['empty', ''],
+  ['blank', '   '],
+  ['too long', 'x'.repeat(MAX_NAME_LENGTH + 1)],
+  ['too long with padding', ` ${'x'.repeat(MAX_NAME_LENGTH + 1)} `],
+  ['undefined', undefined],
+  ['null', null],
+  ['a number', 42],
+];
+
+describe('MAX_NAME_LENGTH', () => {
+  it('is 16', () => {
+    expect(MAX_NAME_LENGTH).toBe(16);
+  });
+});
+
 describe('newGame', () => {
+  it('trims the host name', () => {
+    expect(newGame('p1', '  Ann  ', 'ABCDE', 1).players.p1.name).toBe('Ann');
+  });
+
+  it('accepts a name of exactly the maximum length', () => {
+    const name = 'x'.repeat(MAX_NAME_LENGTH);
+    expect(newGame('p1', name, 'ABCDE', 1).players.p1.name).toBe(name);
+  });
+
+  it.each(invalidNames)('rejects a host name that is %s', (_label, name) => {
+    expect(() => newGame('p1', name as string, 'ABCDE', 1)).toThrow(
+      IllegalActionError,
+    );
+    expect(() => newGame('p1', name as string, 'ABCDE', 1)).toThrow(NAME_ERROR);
+  });
+
   it('creates a waiting game with the host as only player', () => {
     const game = newGame('p1', 'P1', 'ABCDE', 1000);
     expect(game.status).toBe('waiting');
@@ -47,6 +81,30 @@ describe('addPlayer', () => {
   it('returns the same game when the player is already in it', () => {
     const game = lobby(2);
     expect(addPlayer(game, 'p2', 'Other name')).toBe(game);
+  });
+
+  it('lets a player rejoin without validating the name again', () => {
+    const game = lobby(2);
+    expect(addPlayer(game, 'p2', '')).toBe(game);
+    expect(addPlayer(game, 'p2', undefined as any)).toBe(game);
+  });
+
+  it('trims the name', () => {
+    expect(addPlayer(lobby(1), 'p2', '  Bo ').players.p2.name).toBe('Bo');
+  });
+
+  it('accepts a name of exactly the maximum length', () => {
+    const name = 'x'.repeat(MAX_NAME_LENGTH);
+    expect(addPlayer(lobby(1), 'p2', name).players.p2.name).toBe(name);
+  });
+
+  it.each(invalidNames)('rejects a joining name that is %s', (_label, name) => {
+    const before = lobby(1);
+    expect(() => addPlayer(before, 'p2', name as string)).toThrow(
+      IllegalActionError,
+    );
+    expect(() => addPlayer(before, 'p2', name as string)).toThrow(NAME_ERROR);
+    expect(before.playerOrder).toEqual(['p1']);
   });
 
   it('rejects a seventh player', () => {

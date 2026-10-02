@@ -1,6 +1,7 @@
 import { newGame } from '../lobby';
 import { normalizeGame } from '../serialize';
 import { makeGame, play } from '../testHelpers';
+import { IllegalActionError } from '../types';
 
 /** Mimics what Realtime Database does to a value: nulls, empty arrays and empty objects vanish. */
 function firebaseLike(value: unknown): unknown {
@@ -86,6 +87,11 @@ describe('normalizeGame', () => {
     );
     const game = play(start, { type: 'coup', playerId: 'a', target: 'b' });
     expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
+  it('throws a typed error when the game does not exist', () => {
+    expect(() => normalizeGame(null)).toThrow(IllegalActionError);
+    expect(() => normalizeGame(undefined)).toThrow('Game not found');
   });
 
   it('accepts arrays that Firebase returned as keyed objects', () => {

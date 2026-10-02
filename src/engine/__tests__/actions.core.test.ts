@@ -1,5 +1,6 @@
 import { applyAction } from '../actions';
 import { identityRng, makeGame, play } from '../testHelpers';
+import { IllegalActionError } from '../types';
 
 const three = (coins: Record<string, number> = {}) =>
   makeGame(
@@ -69,13 +70,10 @@ describe('illegal input', () => {
     expect(declared.state.lastAction?.target).toBeNull();
   });
 
-  it('throws an error named IllegalActionError', () => {
-    try {
-      play(three(), { type: 'income', playerId: 'b' });
-      throw new Error('expected a throw');
-    } catch (error) {
-      expect((error as Error).name).toBe('IllegalActionError');
-    }
+  it('throws an IllegalActionError', () => {
+    expect(() => play(three(), { type: 'income', playerId: 'b' })).toThrow(
+      IllegalActionError,
+    );
   });
 });
 
@@ -87,13 +85,15 @@ describe('coup', () => {
   });
 
   it('needs a living opponent as target', () => {
-    const game = three({ a: 7 });
     expect(() =>
-      play(game, { type: 'coup', playerId: 'a', target: 'a' }),
+      play(three({ a: 7 }), { type: 'coup', playerId: 'a', target: 'a' }),
     ).toThrow('Choose a living opponent');
-    game.players.b.influence.forEach(i => (i.revealed = true));
+
+    // `play` freezes its input, so tweak a fresh game before handing it over.
+    const eliminated = three({ a: 7 });
+    eliminated.players.b.influence.forEach(i => (i.revealed = true));
     expect(() =>
-      play(game, { type: 'coup', playerId: 'a', target: 'b' }),
+      play(eliminated, { type: 'coup', playerId: 'a', target: 'b' }),
     ).toThrow('Choose a living opponent');
   });
 

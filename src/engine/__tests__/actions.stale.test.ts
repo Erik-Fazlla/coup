@@ -54,6 +54,44 @@ describe('stale responses', () => {
     expect(blocked.state.pending?.block?.responses).toEqual({});
   });
 
+  it('rejects a block that carries an old seq, and does not record it', () => {
+    const declared = apply(three(), { type: 'foreignAid', playerId: 'a' });
+    const stale = declared.state.claimSeq - 1;
+
+    expect(() =>
+      apply(declared, {
+        type: 'block',
+        playerId: 'b',
+        claim: 'Duke',
+        seq: stale,
+      }),
+    ).toThrow(TOO_LATE);
+    expect(declared.state.phase).toBe('awaitingResponses');
+    expect(declared.state.pending?.block).toBeNull();
+
+    const blocked = apply(declared, {
+      type: 'block',
+      playerId: 'b',
+      claim: 'Duke',
+      seq: declared.state.claimSeq,
+    });
+    expect(blocked.state.pending?.block?.blocker).toBe('b');
+  });
+
+  it('rejects a response whose seq is missing', () => {
+    const declared = apply(three(), { type: 'foreignAid', playerId: 'a' });
+    const missing: GameAction[] = [
+      { type: 'pass', playerId: 'b', seq: undefined as any },
+      { type: 'challenge', playerId: 'b', seq: undefined as any },
+      { type: 'block', playerId: 'b', claim: 'Duke', seq: undefined as any },
+    ];
+    missing.forEach(action => {
+      expect(() => apply(declared, action)).toThrow(TOO_LATE);
+    });
+    expect(declared.state.pending?.responses).toEqual({});
+    expect(declared.state.pending?.block).toBeNull();
+  });
+
   it('accepts a pass that carries the current seq', () => {
     const declared = apply(three(), {
       type: 'steal',

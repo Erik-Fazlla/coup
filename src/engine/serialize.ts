@@ -1,4 +1,4 @@
-import { Game, Player } from './types';
+import { Game, IllegalActionError, Player } from './types';
 
 function toArray<T>(value: unknown): T[] {
   if (!value) {
@@ -12,8 +12,12 @@ function toArray<T>(value: unknown): T[] {
 /**
  * Rebuilds a complete Game from a Realtime Database snapshot value.
  * The database omits nulls, empty arrays and empty objects; this puts them back.
+ * Throws IllegalActionError('Game not found') when there is no game at that location.
  */
 export function normalizeGame(raw: any): Game {
+  if (raw === null || raw === undefined) {
+    throw new IllegalActionError('Game not found');
+  }
   const players: Record<string, Player> = {};
   Object.keys(raw.players ?? {}).forEach(id => {
     const player = raw.players[id];

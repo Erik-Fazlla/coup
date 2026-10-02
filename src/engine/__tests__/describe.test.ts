@@ -1,5 +1,5 @@
 import { promptLine, statusLine } from '../describe';
-import { makeGame, play } from '../testHelpers';
+import { makeGame, makePending, play } from '../testHelpers';
 
 const three = () =>
   makeGame({
@@ -57,6 +57,27 @@ describe('statusLine', () => {
     expect(
       statusLine(play(finished, { type: 'coup', playerId: 'a', target: 'b' })),
     ).toBe('A wins');
+  });
+});
+
+describe('statusLine fallback', () => {
+  it('falls back to the turn line, not the exchange text, for an inconsistent loseInfluence state', () => {
+    const game = three();
+    game.state.phase = 'loseInfluence';
+    game.state.pending = makePending({
+      actor: 'a',
+      action: 'coup',
+      target: 'b',
+      loseInfluence: null,
+    });
+    expect(statusLine(game)).toBe("A's turn");
+  });
+
+  it('falls back to the turn line for a block phase without a block', () => {
+    const game = three();
+    game.state.phase = 'awaitingBlockResponses';
+    game.state.pending = makePending({ actor: 'a', action: 'foreignAid' });
+    expect(statusLine(game)).toBe("A's turn");
   });
 });
 

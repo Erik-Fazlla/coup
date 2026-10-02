@@ -74,6 +74,13 @@ src/
 
 After resolution the turn passes to the next living player in join order and `turnNumber` increments.
 
+Amendments after engine review (2026-10-02):
+
+- `state.claimSeq` increments whenever a new prompt opens for responses. Pass, Challenge and Block carry the `seq` of the prompt they answer; the engine rejects a mismatch, so a late tap cannot land on a different claim.
+- When a block is challenged and exposed as a bluff, players who had not yet answered the original action are asked again (they may still challenge it or, for Foreign Aid, block it) before the action resolves.
+- A player eliminated mid-resolution loses nothing further: a Steal against them takes 0 coins.
+- The game finishes the moment one player is left, even mid-resolution.
+
 ## Database schema
 
 ```

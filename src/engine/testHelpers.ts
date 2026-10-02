@@ -85,7 +85,8 @@ function withSeq(game: Game, action: LooseAction): GameAction {
   return action as GameAction;
 }
 
-function deepFreeze<T>(value: T): T {
+/** Freezes a value and everything inside it, so any later write to it throws. */
+export function deepFreeze<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
     Object.freeze(value);
     Object.values(value as object).forEach(deepFreeze);

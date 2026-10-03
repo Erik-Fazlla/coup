@@ -10,3 +10,4 @@
 *.png binary
 *.jar binary
 *.keystore binary
+*.wav binary

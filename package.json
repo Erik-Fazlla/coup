@@ -8,6 +8,7 @@
     "install:device": "node scripts/install-apk.js",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "sounds": "node scripts/generate-sounds.js",
     "start": "react-native start",
     "test": "jest",
     "typecheck": "tsc --noEmit",

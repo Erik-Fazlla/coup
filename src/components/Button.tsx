@@ -76,7 +76,8 @@ const styles = StyleSheet.create({
     margin: spacing.xs,
   },
   face: {
-    flexGrow: 1,
+    // No flexGrow here: inside a panel without a fixed height, Android's layout
+    // lets a growing child expand to the whole available height (a screen-tall button).
     minHeight: TOUCH_MIN,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.md,

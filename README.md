@@ -90,13 +90,33 @@ To create a new keystore:
 
 ## Install on phones
 
-Send `app-release.apk` to each player. On the phone, open the file and allow "Install unknown apps" for the app used to open it.
+### Your own phone, for testing: one command
 
-Or with a USB cable and USB debugging enabled:
-
-```powershell
-adb install -r android\app\build\outputs\apk\release\app-release.apk
+```bash
+npm run install:device
 ```
+
+This finds the Android tools on the computer, installs the latest built APK on every phone connected by USB, and opens the app. If something is missing (no phone detected, phone not yet allowed, tools not installed) it prints the exact steps to fix it.
+
+The phone needs USB debugging switched on once:
+
+1. **Settings → About phone →** tap **Build number** 7 times (Samsung: About phone → Software information → Build number).
+2. **Settings → System → Developer options →** turn on **USB debugging**.
+3. Plug the phone in with a cable that carries data. The phone asks "Allow USB debugging?" → **Allow**.
+
+### Friends: install from the file
+
+No computer or cable needed. Send them the file `android/app/build/outputs/apk/release/app-release.apk` (about 56 MB; rename it `coup.apk` if you like).
+
+1. **Send the file.** Google Drive link or Telegram work well. WhatsApp and email often block `.apk` files.
+2. **On the phone, tap the file** (in Drive, Telegram, or Files → Downloads).
+3. Android says it cannot install apps from this source. Tap **Settings**, switch on **Allow from this source**, go back, tap **Install**.
+4. If Play Protect warns about an unknown developer, choose **Install anyway** (the app is not on the Play Store, so this warning is expected).
+5. Open **Coup**, enter a name, then **Join** with the code the host shares.
+
+Updating later: send the new file and repeat steps 2–4. The app keeps its name and stats as long as the APK was built with the same signing key (see "Signing").
+
+Android 7.0 or newer is required. iPhones are not supported.
 
 ## Run in development
 

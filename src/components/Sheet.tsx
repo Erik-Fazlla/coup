@@ -17,10 +17,14 @@ import {
 import { useAppear } from '../ui/motion';
 import { Button } from './Button';
 
+const LIST_PADDING = spacing.sm;
+
 interface Props {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Extra space under the content, for a sheet with a text field: the height of the keyboard. */
+  bottomInset?: number;
   testID?: string;
 }
 
@@ -30,7 +34,13 @@ interface Props {
  * a native Modal, so the hidden status bar is left alone and it rotates with
  * everything else. Mount it only while it is open.
  */
-export function Sheet({ title, onClose, children, testID }: Props) {
+export function Sheet({
+  title,
+  onClose,
+  children,
+  bottomInset = 0,
+  testID,
+}: Props) {
   const appear = useAppear();
 
   useEffect(() => {
@@ -60,7 +70,10 @@ export function Sheet({ title, onClose, children, testID }: Props) {
         </View>
         <ScrollView
           style={styles.list}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: LIST_PADDING + bottomInset },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           {children}
@@ -102,5 +115,5 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.heading, flex: 1, color: colors.text },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
+  listContent: { paddingHorizontal: spacing.lg, paddingTop: LIST_PADDING },
 });

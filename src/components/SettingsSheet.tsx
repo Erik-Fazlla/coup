@@ -12,6 +12,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { useKeyboardInset } from '../ui/keyboard';
 import { playSound } from '../ui/sound';
 import { Button } from './Button';
 import { Sheet } from './Sheet';
@@ -49,8 +50,20 @@ export function SettingsSheet({ visible, onClose }: Props) {
   if (!visible) {
     return null;
   }
+  return <OpenSettings onClose={onClose} />;
+}
+
+function OpenSettings({ onClose }: { onClose: () => void }) {
+  // Room to scroll the name field above the keyboard. If the window itself shrinks for
+  // the keyboard on some phone, this is only extra scrollable space.
+  const keyboardInset = useKeyboardInset();
   return (
-    <Sheet title="Settings" onClose={onClose} testID="settings-sheet">
+    <Sheet
+      title="Settings"
+      onClose={onClose}
+      bottomInset={keyboardInset}
+      testID="settings-sheet"
+    >
       <NameSetting />
       <Text style={styles.heading} accessibilityRole="header">
         THIS DEVICE
@@ -161,6 +174,9 @@ function NameSetting() {
             autoCorrect={false}
             placeholder="Name"
             placeholderTextColor={colors.muted}
+            // In landscape Android would otherwise replace the whole screen with the keyboard's own edit field.
+            disableFullscreenUI
+            underlineColorAndroid="transparent"
             accessibilityLabel="Player name"
           />
           <View style={styles.nameButtons}>

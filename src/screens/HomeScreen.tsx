@@ -18,6 +18,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { useKeyboardInset } from '../ui/keyboard';
 import { useIsPortrait } from '../ui/orientation';
 
 const CODE_LENGTH = 5;
@@ -43,6 +44,7 @@ export function HomeScreen() {
   const { profile } = useProfile();
   const { connected, busy, error, createGame, joinGame } = useGame();
   const portrait = useIsPortrait();
+  const keyboardInset = useKeyboardInset();
   const [code, setCode] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -67,7 +69,12 @@ export function HomeScreen() {
           <ConnectionBanner connected={connected} />
           <ScrollView
             style={styles.body}
-            contentContainerStyle={portrait ? styles.stack : styles.columns}
+            // Room to scroll the code field above the keyboard. If the window itself shrinks
+            // for the keyboard on some phone, this is only extra scrollable space.
+            contentContainerStyle={[
+              portrait ? styles.stack : styles.columns,
+              { paddingBottom: keyboardInset },
+            ]}
             keyboardShouldPersistTaps="handled"
           >
             <Panel style={[styles.column, !portrait && styles.columnBeside]}>
@@ -121,6 +128,9 @@ export function HomeScreen() {
                 autoCorrect={false}
                 placeholder="CODE"
                 placeholderTextColor={colors.muted}
+                // In landscape Android would otherwise replace the whole screen with the keyboard's own edit field.
+                disableFullscreenUI
+                underlineColorAndroid="transparent"
                 accessibilityLabel="Join code"
               />
               <Button

@@ -1,6 +1,6 @@
 import { newGame } from '../lobby';
 import { pendingResponders } from '../rules';
-import { makeGame, play } from '../testHelpers';
+import { deepFreeze, makeGame, play } from '../testHelpers';
 import { Game, IllegalActionError } from '../types';
 
 const SKIP = { type: 'skip', playerId: 'a' } as const;
@@ -416,6 +416,59 @@ describe('host skip', () => {
       const skipped = play(hostOut, SKIP);
       expect(skipped.players.c.coins).toBe(3);
       expect(skipped.state.currentTurnPlayer).toBe('b');
+    });
+
+    describe('when the game has moved on since the host looked', () => {
+      const TOO_LATE = 'Too late: the game has moved on';
+
+      /** The host's view: waiting for b and c to answer a's Foreign Aid. */
+      const asked = () => play(three(), { type: 'foreignAid', playerId: 'a' });
+
+      it.each([
+        ['turn', (game: Game) => ({ turn: game.state.turnNumber - 1 })],
+        ['seq', (game: Game) => ({ seq: game.state.claimSeq - 1 })],
+        ['phase', () => ({ phase: 'action' as const })],
+      ])(
+        'rejects a skip carrying a previous %s and changes nothing',
+        (_l, stale) => {
+          const game = deepFreeze(asked());
+          const before = JSON.stringify(game);
+          const action = { ...SKIP, ...stale(game) };
+          expect(() => play(game, action)).toThrow(IllegalActionError);
+          expect(() => play(game, action)).toThrow(TOO_LATE);
+          expect(JSON.stringify(game)).toBe(before);
+        },
+      );
+
+      it('rejects a skip aimed at a wait that has already been answered', () => {
+        const waiting = asked();
+        const seen = {
+          turn: waiting.state.turnNumber,
+          seq: waiting.state.claimSeq,
+          phase: waiting.state.phase,
+        };
+        // b and c answer before the host's skip arrives: the game is now waiting for b to act.
+        const moved = play(
+          waiting,
+          { type: 'pass', playerId: 'b' },
+          { type: 'pass', playerId: 'c' },
+        );
+        expect(moved.state.phase).toBe('action');
+        expect(() => play(moved, { ...SKIP, ...seen })).toThrow(TOO_LATE);
+        // Without the guard this would have taken Income for b.
+        expect(moved.players.b.coins).toBe(2);
+      });
+
+      it('applies a skip whose values all match the current game', () => {
+        const waiting = asked();
+        const skipped = play(waiting, {
+          ...SKIP,
+          turn: waiting.state.turnNumber,
+          seq: waiting.state.claimSeq,
+          phase: waiting.state.phase,
+        });
+        expect(skipped.players.a.coins).toBe(4);
+      });
     });
 
     it('resolves one wait per skip', () => {

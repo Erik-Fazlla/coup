@@ -1,6 +1,6 @@
 import { applyAction } from './actions';
 import { Rng } from './deck';
-import { Card, Game, GameAction, Pending, Player } from './types';
+import { Card, Game, GameAction, Pending, Phase, Player } from './types';
 
 /** With this rng, shuffle() returns its input order unchanged. */
 export const identityRng: Rng = () => 0.999999;
@@ -73,14 +73,31 @@ export function makePending(
   };
 }
 
-type WithOptionalSeq<A> = A extends { seq: number }
+type WithOptionalStamp<A> = A extends { type: 'skip' }
+  ? Omit<A, 'seq' | 'turn' | 'phase'> & {
+      seq?: number;
+      turn?: number;
+      phase?: Phase;
+    }
+  : A extends { seq: number }
   ? Omit<A, 'seq'> & { seq?: number }
   : A;
 
-/** A GameAction whose `seq` may be left out; `play` then uses the claim that is open at that moment. */
-export type LooseAction = WithOptionalSeq<GameAction>;
+/**
+ * A GameAction whose `seq` (and, for a skip, `turn` and `phase`) may be left out;
+ * `play` then uses the values that are current at that moment.
+ */
+export type LooseAction = WithOptionalStamp<GameAction>;
 
-function withSeq(game: Game, action: LooseAction): GameAction {
+function withStamp(game: Game, action: LooseAction): GameAction {
+  if (action.type === 'skip') {
+    return {
+      ...action,
+      turn: action.turn ?? game.state.turnNumber,
+      seq: action.seq ?? game.state.claimSeq,
+      phase: action.phase ?? game.state.phase,
+    };
+  }
   const needsSeq =
     action.type === 'pass' ||
     action.type === 'challenge' ||
@@ -101,14 +118,15 @@ export function deepFreeze<T>(value: T): T {
 }
 
 /**
- * Applies actions in order with the identity rng, filling in a missing `seq` with the current `claimSeq`.
+ * Applies actions in order with the identity rng, filling in a missing `seq` with the current `claimSeq`
+ * (and, for a skip, a missing `turn` and `phase` with the current ones).
  * Every state is deep-frozen before it reaches `applyAction`, so any mutation of an input game throws.
  * That includes `game` itself: build and tweak it before calling `play`, not after.
  */
 export function play(game: Game, ...actions: LooseAction[]): Game {
   return actions.reduce(
     (state, action) =>
-      applyAction(deepFreeze(state), withSeq(state, action), identityRng),
+      applyAction(deepFreeze(state), withStamp(state, action), identityRng),
     game,
   );
 }

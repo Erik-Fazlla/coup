@@ -297,14 +297,51 @@ describe('acting', () => {
     expect(value.error).toBeNull();
   });
 
-  it('sends a skip for the open game as this player', async () => {
-    await mountInGame(playing());
+  it('sends a skip for the open game as this player, stamped with what the game shows', async () => {
+    const game = playing();
+    await mountInGame({
+      ...game,
+      state: {
+        ...game.state,
+        turnNumber: 4,
+        claimSeq: 3,
+        phase: 'awaitingResponses',
+      },
+    });
     await act(async () => value.skip());
     expect(mockGames.dispatch).toHaveBeenCalledWith('g1', {
       type: 'skip',
       playerId: 'me',
+      turn: 4,
+      seq: 3,
+      phase: 'awaitingResponses',
     });
     expect(value.error).toBeNull();
+  });
+
+  it('stamps a skip with the latest game it has been given', async () => {
+    const game = playing();
+    await mountInGame(game);
+    await act(async () =>
+      subscriptions.g1.onGame({
+        ...game,
+        state: { ...game.state, turnNumber: 2, phase: 'exchange' },
+      }),
+    );
+    await act(async () => value.skip());
+    expect(mockGames.dispatch).toHaveBeenCalledWith('g1', {
+      type: 'skip',
+      playerId: 'me',
+      turn: 2,
+      seq: game.state.claimSeq,
+      phase: 'exchange',
+    });
+  });
+
+  it('does not skip before the game has loaded', async () => {
+    await mount('g1');
+    await act(async () => value.skip());
+    expect(mockGames.dispatch).not.toHaveBeenCalled();
   });
 
   it('does not rematch, kick or skip when no game is open', async () => {

@@ -6,7 +6,7 @@ import {
   ref,
   set,
 } from 'firebase/database';
-import { Game } from '../src/engine/types';
+import { Game, GameAction } from '../src/engine/types';
 import { createGameService, GameService } from '../src/firebase/gameService';
 
 const apps: FirebaseApp[] = [];
@@ -226,6 +226,17 @@ async function threePlayerLobby(): Promise<{ id: string; lobbyCode: string }> {
   return { id, lobbyCode };
 }
 
+/** A skip stamped with what the host currently sees, as the app sends it. */
+function skipOf(game: Game, playerId: string): GameAction {
+  return {
+    type: 'skip',
+    playerId,
+    turn: game.state.turnNumber,
+    seq: game.state.claimSeq,
+    phase: game.state.phase,
+  };
+}
+
 /** Changes whenever the game starts waiting for something else. */
 function waitKey(game: Game): string {
   const { phase, turnNumber, claimSeq, pending } = game.state;
@@ -245,10 +256,14 @@ describe('host skip', () => {
     skipId = (await threePlayerLobby()).id;
     await host.service.startGame(skipId, 'h');
     await host.service.dispatch(skipId, { type: 'income', playerId: 'h' });
-    await seen(host.service, skipId, g => g.state.currentTurnPlayer === 'p2');
+    const waiting = await seen(
+      host.service,
+      skipId,
+      g => g.state.currentTurnPlayer === 'p2',
+    );
 
     // The table is waiting for Second; the host moves it on.
-    await host.service.dispatch(skipId, { type: 'skip', playerId: 'h' });
+    await host.service.dispatch(skipId, skipOf(waiting, 'h'));
     const games = await Promise.all(
       everyone.map(c =>
         seen(c.service, skipId, g => g.state.currentTurnPlayer === 'p3'),
@@ -263,12 +278,12 @@ describe('host skip', () => {
 
   it('passes for everyone who has not answered a claim', async () => {
     await third.service.dispatch(skipId, { type: 'tax', playerId: 'p3' });
-    await seen(
+    const asked = await seen(
       host.service,
       skipId,
       g => g.state.phase === 'awaitingResponses',
     );
-    await host.service.dispatch(skipId, { type: 'skip', playerId: 'h' });
+    await host.service.dispatch(skipId, skipOf(asked, 'h'));
     const games = await Promise.all(
       everyone.map(c =>
         seen(c.service, skipId, g => g.state.currentTurnPlayer === 'h'),
@@ -283,10 +298,30 @@ describe('host skip', () => {
   it('rejects a skip from a player who is not the host', async () => {
     const before = await seen(host.service, skipId, () => true);
     await expect(
-      second.service.dispatch(skipId, { type: 'skip', playerId: 'p2' }),
+      second.service.dispatch(skipId, skipOf(before, 'p2')),
     ).rejects.toThrow('Only the host can skip');
     const after = await seen(host.service, skipId, () => true);
     expect(after).toEqual(before);
+  });
+
+  it('rejects a skip stamped with a wait the game has already left', async () => {
+    const before = await seen(host.service, skipId, () => true);
+    const stale = skipOf(before, 'h');
+    // Someone acts first, so the game is waiting for something else when the skip arrives.
+    await host.service.dispatch(skipId, {
+      type: 'income',
+      playerId: before.state.currentTurnPlayer,
+    });
+    const moved = await seen(
+      host.service,
+      skipId,
+      g => g.state.turnNumber > before.state.turnNumber,
+    );
+    await expect(host.service.dispatch(skipId, stale)).rejects.toThrow(
+      'Too late: the game has moved on',
+    );
+    const after = await seen(host.service, skipId, () => true);
+    expect(after).toEqual(moved);
   });
 });
 
@@ -338,7 +373,7 @@ describe('rematch', () => {
     for (let step = 0; game.status === 'playing'; step++) {
       expect(step).toBeLessThan(400);
       const key = waitKey(game);
-      await host.service.dispatch(id, { type: 'skip', playerId: 'h' });
+      await host.service.dispatch(id, skipOf(game, 'h'));
       game = await seen(host.service, id, g => waitKey(g) !== key);
     }
 

@@ -69,13 +69,61 @@ function cuesFor(before: Game, playerId: string, ...actions: LooseAction[]) {
 }
 
 describe('soundCues', () => {
-  it('is silent for the first snapshot, whatever it holds', () => {
-    expect(soundCues(null, table(), 'me')).toEqual([]);
-    const asked = play(theirTurn(), { type: 'tax', playerId: 'b' });
-    expect(soundCues(null, asked, 'me')).toEqual([]);
+  it('is silent for a first snapshot that asks nothing of me', () => {
+    expect(soundCues(null, theirTurn(), 'me')).toEqual([]);
+    expect(soundCues(null, table(), 'b')).toEqual([]);
     expect(
       soundCues(null, { ...lastCards(), status: 'finished' }, 'me'),
     ).toEqual([]);
+    expect(soundCues(null, { ...table(), status: 'waiting' }, 'me')).toEqual(
+      [],
+    );
+  });
+
+  it('plays my turn or my prompt on the first snapshot, as the phone buzzes then too', () => {
+    // The round's first player opens the game screen on their own turn.
+    expect(soundCues(null, table(), 'me')).toEqual(['turn']);
+    const asked = play(theirTurn(), { type: 'tax', playerId: 'b' });
+    expect(soundCues(null, asked, 'me')).toEqual(['prompt']);
+    expect(soundCues(null, asked, 'b')).toEqual([]);
+  });
+
+  it('never plays a burst for what a first snapshot already holds', () => {
+    // A settled challenge, a lost card and changed coins are all on the table already.
+    const challenged = play(
+      theirTurn(),
+      { type: 'income', playerId: 'b' },
+      { type: 'tax', playerId: 'me' },
+      { type: 'challenge', playerId: 'b' },
+    );
+    expect(challenged.reveal).not.toBeNull();
+    expect(buzzMoment(challenged, 'b')?.kind).toBe('lose');
+    expect(soundCues(null, challenged, 'b')).toEqual(['prompt']);
+    expect(soundCues(null, challenged, 'me')).toEqual([]);
+    expect(soundCues(null, challenged, 'c')).toEqual([]);
+  });
+
+  it('agrees with the buzz on every first snapshot', () => {
+    const actions: LooseAction[] = [
+      { type: 'tax', playerId: 'b' },
+      { type: 'pass', playerId: 'c' },
+      { type: 'pass', playerId: 'me' },
+      { type: 'steal', playerId: 'me', target: 'b' },
+      { type: 'pass', playerId: 'c' },
+      { type: 'block', playerId: 'b', claim: 'Captain' },
+      { type: 'challenge', playerId: 'me' },
+      { type: 'loseInfluence', playerId: 'b', cardIndex: 0 },
+    ];
+    let game = theirTurn();
+    actions.forEach(action => {
+      game = play(game, action);
+      ['me', 'b', 'c'].forEach(id => {
+        const kind = buzzMoment(game, id)?.kind ?? null;
+        expect(soundCues(null, game, id)).toEqual(
+          kind === null ? [] : [kind === 'turn' ? 'turn' : 'prompt'],
+        );
+      });
+    });
   });
 
   it('is silent when nothing that can be heard changed', () => {
@@ -242,6 +290,10 @@ describe('soundCues', () => {
     expect(soundCues(before, { ...richer(), round: 2 }, 'me')).toEqual([]);
     expect(soundCues(before, { ...richer(), code: 'OTHER' }, 'me')).toEqual([]);
     expect(soundCues(before, { ...richer(), createdAt: 5 }, 'me')).toEqual([]);
+    // Like any first snapshot, it still says so when the new round opens on my turn.
+    expect(soundCues(theirTurn(), { ...table(), round: 2 }, 'me')).toEqual([
+      'turn',
+    ]);
   });
 
   it('plays turn or prompt exactly when the phone would buzz', () => {
@@ -310,13 +362,16 @@ describe('useGameSounds', () => {
     jest.useRealTimers();
   });
 
-  it('is silent when a game is opened, then plays what each new snapshot brings', () => {
-    const asked = play(theirTurn(), { type: 'tax', playerId: 'b' });
-    const renderer = render(<Probe game={asked} />);
+  it('is silent when a game is opened on someone else, then plays what each new snapshot brings', () => {
+    const renderer = render(<Probe game={theirTurn()} />);
     expect(played()).toEqual([]);
 
+    const asked = play(theirTurn(), { type: 'tax', playerId: 'b' });
+    deliver(renderer, asked);
+    expect(played()).toEqual(['prompt']);
+
     deliver(renderer, play(asked, { type: 'pass', playerId: 'c' }));
-    expect(played()).toEqual([]);
+    expect(played()).toEqual(['prompt']);
 
     deliver(
       renderer,
@@ -326,7 +381,30 @@ describe('useGameSounds', () => {
         { type: 'pass', playerId: 'me' },
       ),
     );
-    expect(played()).toEqual(['coin', 'turn']);
+    expect(played()).toEqual(['prompt', 'coin', 'turn']);
+    unmount(renderer);
+  });
+
+  it('plays only my turn when the game opens on my turn, as for the first player of a round', () => {
+    const renderer = render(<Probe game={table()} />);
+    expect(played()).toEqual(['turn']);
+    // The same moment again says nothing more.
+    deliver(renderer, { ...table(), log: ['a line'] });
+    expect(played()).toEqual(['turn']);
+    unmount(renderer);
+  });
+
+  it('plays only my prompt when the game opens on a claim I must answer', () => {
+    const asked = play(theirTurn(), { type: 'tax', playerId: 'b' });
+    const renderer = render(<Probe game={asked} />);
+    expect(played()).toEqual(['prompt']);
+    unmount(renderer);
+  });
+
+  it('plays nothing on opening with sound switched off', () => {
+    mockSound = false;
+    const renderer = render(<Probe game={table()} />);
+    expect(played()).toEqual([]);
     unmount(renderer);
   });
 
@@ -369,6 +447,9 @@ describe('useGameSounds', () => {
   it('carries the end of the game over to the screen that replaces the game screen', () => {
     const { last, over } = ending();
     const gameScreen = render(<Probe game={last} as="b" />);
+    // The game screen opened on B's own turn, which is heard like any other.
+    expect(played()).toEqual(['turn']);
+    (playSound as jest.Mock).mockClear();
     // The router swaps the screens in one update: one closes, the other opens.
     act(() => {
       gameScreen.update(<Probe key="over" game={over} as="b" />);
@@ -416,7 +497,8 @@ describe('useGameSounds', () => {
         />,
       );
     });
-    expect(played()).toEqual([]);
+    // No coin for B's income: the new screen only says it opened on my turn.
+    expect(played()).toEqual(['turn']);
     unmount(first);
   });
 });

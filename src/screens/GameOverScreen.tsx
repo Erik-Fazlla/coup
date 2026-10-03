@@ -7,7 +7,7 @@ import { Scoreboard } from '../components/Scoreboard';
 import { Screen } from '../components/Screen';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
-import { eliminationLines } from '../engine/describe';
+import { eliminationLines, revealLine } from '../engine/describe';
 import { colors, READING_FONT_SCALE, spacing, typography } from '../theme';
 import { useIsPortrait } from '../ui/orientation';
 import { useGameSounds } from '../ui/soundCues';
@@ -41,7 +41,11 @@ export function GameOverScreen() {
     : youWon
     ? 'You win!'
     : `${game.players[winner]?.name ?? 'Someone'} wins`;
-  const story = eliminationLines(game);
+  // A challenge that ends the game is never seen on the table: the game screen closes with it.
+  const story = [
+    ...(game.reveal ? [revealLine(game)] : []),
+    ...eliminationLines(game),
+  ];
 
   return (
     <Screen>

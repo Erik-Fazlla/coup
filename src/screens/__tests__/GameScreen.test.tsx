@@ -1,10 +1,17 @@
 import React from 'react';
-import { Alert, Dimensions, ScrollView, Vibration } from 'react-native';
+import {
+  Alert,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Vibration,
+} from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import { ActionGrid } from '../../components/ActionGrid';
 import { OnlineDot } from '../../components/OnlineDot';
 import { ResponseBar } from '../../components/ResponseBar';
 import { Seat } from '../../components/Seat';
+import { REGION_GAP, tableLayout } from '../../components/tableLayout';
 import { TopBar } from '../../components/TopBar';
 import { REVEAL_MS } from '../../ui/reveal';
 import { playSound } from '../../ui/sound';
@@ -524,9 +531,17 @@ describe('GameScreen turn buzz', () => {
 describe('GameScreen sounds', () => {
   const played = () => (playSound as jest.Mock).mock.calls.map(call => call[0]);
 
-  it('is silent when the game is opened, even on my turn', () => {
-    mount(myTurn());
+  it('is silent when the game is opened on someone else', () => {
+    mount(theirTurn());
     expect(played()).toEqual([]);
+  });
+
+  it('plays my turn, and buzzes, when the game is opened on my turn', () => {
+    // The first player of a round: the screen opens on their own turn.
+    mount(myTurn());
+    expect(played()).toEqual(['turn']);
+    expect(vibrate).toHaveBeenCalledTimes(1);
+    expect(vibrate).toHaveBeenCalledWith(BUZZ_PATTERN.turn);
   });
 
   it('plays what a new snapshot brings: coins for anyone, then my turn', () => {
@@ -659,6 +674,57 @@ describe('GameScreen challenge reveal', () => {
       cardIndex: 1,
     });
   });
+
+  /** OTHER really holds the Duke: my challenge costs me a card, to be picked at once. */
+  const lostChallenge = () => {
+    const start = makeGame({
+      other: ['Duke', 'Assassin'],
+      me: ['Duke', 'Captain'],
+    });
+    const renderer = mount(start);
+    deliver(
+      renderer,
+      play(
+        start,
+        { type: 'tax', playerId: 'other' },
+        { type: 'challenge', playerId: 'me' },
+      ),
+    );
+    return renderer;
+  };
+
+  it('lets me pick the card to lose while the result is still showing', () => {
+    const renderer = lostChallenge();
+    expect(overlay(renderer)).toBeDefined();
+    // Nothing but the result card itself takes touches away from the table.
+    expect(host(renderer, 'reveal-scrim').props.pointerEvents).toBe('none');
+    expect(host(renderer, 'reveal-region').props.pointerEvents).toBe(
+      'box-none',
+    );
+    press(renderer, 'lose-card-0');
+    expect(mockAct).toHaveBeenCalledWith({
+      type: 'loseInfluence',
+      playerId: 'me',
+      cardIndex: 0,
+    });
+  });
+
+  it.each([
+    ['landscape', 640, 360],
+    ['portrait', 360, 640],
+  ])(
+    'keeps the result clear of the hand and the actions in %s',
+    (_label, width, height) => {
+      windowSize(width, height);
+      const renderer = lostChallenge();
+      const layout = tableLayout(width - 24, height - 16, 1);
+      const region = StyleSheet.flatten(
+        host(renderer, 'reveal-region').props.style,
+      );
+      expect(region.bottom).toBe(layout.bottomHeight + REGION_GAP);
+      expect(region.top).toBe(0);
+    },
+  );
 });
 
 describe('GameScreen rules', () => {

@@ -20,8 +20,11 @@ function sameRound(a: Game, b: Game): boolean {
  * The sounds to play, in order, when the game goes from `previous` to `next`
  * as seen by `playerId`. Each name appears at most once.
  *
- * Nothing for the first snapshot (`previous` is null), so opening a game is
- * silent, and nothing when the two snapshots are different games or rounds.
+ * The first snapshot (`previous` is null, or a different game or round) never
+ * plays a burst for what is already on the table: no coin, card or challenge.
+ * It plays one thing only, the turn or prompt cue, and only when the game is
+ * waiting for this player. The phone buzzes at that same moment (`useTurnBuzz`),
+ * so the round's first player gets both, not a buzz in silence.
  *
  * Order: challenge, card, coin, then turn or prompt, then win or lose.
  */
@@ -30,8 +33,12 @@ export function soundCues(
   next: Game,
   playerId: string,
 ): SoundName[] {
-  if (!previous || previous === next || !sameRound(previous, next)) {
+  if (previous === next) {
     return [];
+  }
+  if (!previous || !sameRound(previous, next)) {
+    const opening = buzzMoment(next, playerId);
+    return opening ? [opening.kind === 'turn' ? 'turn' : 'prompt'] : [];
   }
   const cues: SoundName[] = [];
   const ids = Object.keys(next.players).filter(id => previous.players[id]);
@@ -92,9 +99,10 @@ function takeHandover(first: Game): Game | null {
  * Plays the sounds for each new snapshot of the game, unless the player has
  * switched sound off. Used by the game screen and the Game Over screen.
  *
- * The first snapshot a screen sees is silent, so reopening the app never
- * plays a burst. The one exception is the snapshot that ends the game: it
- * arrives on the Game Over screen, which takes over from the game screen.
+ * The first snapshot a screen sees plays at most the turn or prompt cue, so
+ * reopening the app never plays a burst. The one exception is the snapshot
+ * that ends the game: it arrives on the Game Over screen, which takes over
+ * from the game screen.
  */
 export function useGameSounds(game: Game | null, playerId: string): void {
   const { settings } = useSettings();

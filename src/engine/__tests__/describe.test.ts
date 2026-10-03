@@ -4,13 +4,16 @@ import {
   ACTION_EFFECT,
   CHARACTER_CODE,
   CHARACTER_INFO,
+  eliminationLines,
   promptLine,
+  revealLine,
+  scoreboard,
   statusLine,
   unavailableReason,
   viewerLine,
 } from '../describe';
 import { ACTION_COST, BLOCK_CLAIMS } from '../rules';
-import { ActionType, CARDS } from '../types';
+import { ActionType, Card, CARDS } from '../types';
 import { makeGame, makePending, play } from '../testHelpers';
 
 const ALL_ACTIONS = Object.keys(ACTION_COST) as ActionType[];
@@ -289,5 +292,138 @@ describe('ACTION_BUTTON', () => {
       steal: 'Steal 2 (Captain)',
       exchange: 'Exchange (Ambassador)',
     });
+  });
+});
+
+/** Erik hosts; Maria and Nikos follow in join order. */
+function named(hands: Record<string, Card[]>, coins?: Record<string, number>) {
+  const game = makeGame(hands, { coins });
+  const names: Record<string, string> = { e: 'Erik', m: 'Maria', n: 'Nikos' };
+  Object.keys(game.players).forEach(id => {
+    game.players[id].name = names[id];
+  });
+  return game;
+}
+
+describe('revealLine', () => {
+  it('is empty when there has been no challenge', () => {
+    expect(revealLine(named({ e: ['Duke', 'Duke'], m: ['Captain'] }))).toBe('');
+  });
+
+  it('says the claimant had the card when the claim was true', () => {
+    const game = play(
+      named({ e: ['Duke', 'Captain'], m: ['Duke', 'Contessa'] }),
+      { type: 'income', playerId: 'e' },
+      { type: 'tax', playerId: 'm' },
+      { type: 'challenge', playerId: 'e' },
+    );
+    expect(revealLine(game)).toBe('Maria had the Duke');
+  });
+
+  it('says the claimant was bluffing when the claim was false', () => {
+    const game = play(
+      named({ e: ['Duke', 'Captain'], m: ['Captain', 'Contessa'] }),
+      { type: 'income', playerId: 'e' },
+      { type: 'tax', playerId: 'm' },
+      { type: 'challenge', playerId: 'e' },
+    );
+    expect(revealLine(game)).toBe('Maria was bluffing — no Duke');
+  });
+
+  it('names the blocker when a block was challenged', () => {
+    const game = play(
+      named({ e: ['Duke', 'Captain'], m: ['Captain', 'Contessa'] }),
+      { type: 'foreignAid', playerId: 'e' },
+      { type: 'block', playerId: 'm', claim: 'Duke' },
+      { type: 'challenge', playerId: 'e' },
+    );
+    expect(revealLine(game)).toBe('Maria was bluffing — no Duke');
+  });
+
+  it('does not break when the claimant is no longer in the game', () => {
+    const game = named({ e: ['Duke', 'Duke'], m: ['Captain'] });
+    game.reveal = {
+      id: 1,
+      challenger: 'e',
+      claimant: 'gone',
+      card: 'Assassin',
+      truthful: true,
+      block: false,
+    };
+    expect(revealLine(game)).toBe('? had the Assassin');
+  });
+});
+
+describe('eliminationLines', () => {
+  it('is empty while nobody is out', () => {
+    expect(
+      eliminationLines(named({ e: ['Duke', 'Duke'], m: ['Captain'] })),
+    ).toEqual([]);
+  });
+
+  it('lists who went out, who took them out and on which turn, in order', () => {
+    const game = play(
+      named(
+        { e: ['Duke', 'Captain'], m: ['Contessa'], n: ['Assassin'] },
+        { e: 14 },
+      ),
+      { type: 'coup', playerId: 'e', target: 'm' },
+      { type: 'income', playerId: 'n' },
+      { type: 'coup', playerId: 'e', target: 'n' },
+    );
+    expect(eliminationLines(game)).toEqual([
+      'Maria — taken out by Erik (turn 1)',
+      'Nikos — taken out by Erik (turn 3)',
+    ]);
+  });
+
+  it('leaves out the cause when nobody caused it', () => {
+    const game = named({ e: ['Duke', 'Duke'], m: ['Captain'] });
+    game.eliminations = [{ playerId: 'm', by: null, turn: 7 }];
+    expect(eliminationLines(game)).toEqual(['Maria — out (turn 7)']);
+  });
+});
+
+describe('scoreboard', () => {
+  it('lists every current player with zero wins in join order at the start', () => {
+    const game = named({ e: ['Duke'], m: ['Captain'], n: ['Contessa'] });
+    expect(scoreboard(game)).toEqual([
+      { playerId: 'e', name: 'Erik', wins: 0 },
+      { playerId: 'm', name: 'Maria', wins: 0 },
+      { playerId: 'n', name: 'Nikos', wins: 0 },
+    ]);
+  });
+
+  it('sorts by wins, most first, and keeps join order between equals', () => {
+    const game = named({ e: ['Duke'], m: ['Captain'], n: ['Contessa'] });
+    game.scores = { n: 3, m: 1, e: 1 };
+    expect(scoreboard(game)).toEqual([
+      { playerId: 'n', name: 'Nikos', wins: 3 },
+      { playerId: 'e', name: 'Erik', wins: 1 },
+      { playerId: 'm', name: 'Maria', wins: 1 },
+    ]);
+  });
+
+  it('ignores scores of players who are no longer in the game', () => {
+    const game = named({ e: ['Duke'], m: ['Captain'] });
+    game.scores = { m: 2, gone: 5 };
+    expect(scoreboard(game)).toEqual([
+      { playerId: 'm', name: 'Maria', wins: 2 },
+      { playerId: 'e', name: 'Erik', wins: 0 },
+    ]);
+  });
+
+  it('shows wins only: no bluff or challenge statistics', () => {
+    const game = named({ e: ['Duke'], m: ['Captain'] });
+    scoreboard(game).forEach(row =>
+      expect(Object.keys(row).sort()).toEqual(['name', 'playerId', 'wins']),
+    );
+  });
+
+  it('does not reorder the game it was given', () => {
+    const game = named({ e: ['Duke'], m: ['Captain'], n: ['Contessa'] });
+    game.scores = { n: 3 };
+    scoreboard(game);
+    expect(game.playerOrder).toEqual(['e', 'm', 'n']);
   });
 });

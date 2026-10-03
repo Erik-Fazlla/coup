@@ -22,6 +22,16 @@
         ".write": true,
         ".validate": "newData.hasChildren(['name', 'gamesPlayed', 'wins', 'createdAt']) && newData.child('name').isString() && newData.child('name').val().length <= 20"
       }
+    },
+    "presence": {
+      "$gameId": {
+        ".read": true,
+        "$playerId": {
+          ".read": true,
+          ".write": true,
+          ".validate": "newData.isBoolean()"
+        }
+      }
     }
   }
 }

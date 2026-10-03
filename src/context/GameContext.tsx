@@ -22,6 +22,8 @@ interface State {
   /** True once the first snapshot for `gameId` has arrived. */
   loaded: boolean;
   connected: boolean;
+  /** Players currently connected to this game; null when presence cannot be read, so hide indicators. */
+  online: Record<string, true> | null;
   /** Number of remote operations still waiting for the server. */
   inFlight: number;
   error: string | null;
@@ -31,6 +33,7 @@ type Event =
   | { type: 'entered'; gameId: string | null }
   | { type: 'game'; game: Game | null }
   | { type: 'connected'; connected: boolean }
+  | { type: 'presence'; online: Record<string, true> | null }
   | { type: 'operationStarted' }
   | { type: 'operationEnded' }
   | { type: 'error'; error: string | null };
@@ -41,6 +44,7 @@ const initialState: State = {
   game: null,
   loaded: false,
   connected: false,
+  online: {},
   inFlight: 0,
   error: null,
 };
@@ -63,6 +67,7 @@ function reducer(state: State, event: Event): State {
         gameId: event.gameId,
         game: null,
         loaded: false,
+        online: {},
         error: null,
       };
     case 'game': {
@@ -84,6 +89,8 @@ function reducer(state: State, event: Event): State {
     }
     case 'connected':
       return { ...state, connected: event.connected };
+    case 'presence':
+      return { ...state, online: event.online };
     case 'operationStarted':
       return { ...state, inFlight: state.inFlight + 1, error: null };
     case 'operationEnded':
@@ -146,6 +153,27 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       error => send({ type: 'error', error: error.message }),
     );
   }, [games, gameId]);
+
+  // Presence is display-only: a failure here never shows an error or touches the game.
+  useEffect(() => {
+    if (!gameId) {
+      return;
+    }
+    let active = true;
+    const stopTracking = playerId
+      ? games.trackPresence(gameId, playerId)
+      : () => {};
+    const stopWatching = games.subscribePresence(
+      gameId,
+      online => active && send({ type: 'presence', online }),
+      () => active && send({ type: 'presence', online: null }),
+    );
+    return () => {
+      active = false;
+      stopTracking();
+      stopWatching();
+    };
+  }, [games, gameId, playerId]);
 
   /** Runs a remote operation, showing its error message instead of throwing. */
   const run = useCallback(async (operation: () => Promise<void>) => {

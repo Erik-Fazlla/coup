@@ -2,7 +2,10 @@ import { deleteApp, FirebaseApp, initializeApp } from 'firebase/app';
 import {
   connectDatabaseEmulator,
   Database,
+  get,
   getDatabase,
+  goOffline,
+  goOnline,
   ref,
   set,
 } from 'firebase/database';
@@ -467,6 +470,88 @@ describe('rematch', () => {
   });
 });
 
+describe('presence', () => {
+  const watcher = client('presence-watcher');
+  const alice = client('presence-alice');
+  const bob = client('presence-bob');
+  const room = 'presence-room';
+  let stopAlice = () => {};
+  let stopBob = () => {};
+
+  /** Resolves with the first map of online players that satisfies `predicate`. */
+  function online(
+    predicate: (players: Record<string, true>) => boolean,
+    watched = room,
+  ): Promise<Record<string, true>> {
+    return new Promise((resolve, reject) => {
+      let done = false;
+      let unsubscribe = () => {};
+      const timer = setTimeout(() => {
+        done = true;
+        unsubscribe();
+        reject(new Error('Timed out waiting for presence'));
+      }, 10000);
+      unsubscribe = watcher.service.subscribePresence(
+        watched,
+        players => {
+          if (!done && predicate(players)) {
+            done = true;
+            clearTimeout(timer);
+            setTimeout(unsubscribe, 0);
+            resolve(players);
+          }
+        },
+        () => reject(new Error('Presence became unavailable')),
+      );
+    });
+  }
+
+  afterAll(() => {
+    stopAlice();
+    stopBob();
+  });
+
+  it('shows nobody for a game nobody is in', async () => {
+    expect(await online(() => true, 'presence-empty')).toEqual({});
+  });
+
+  it('shows every tracked player to a client that only watches', async () => {
+    stopAlice = alice.service.trackPresence(room, 'alice');
+    stopBob = bob.service.trackPresence(room, 'bob');
+    expect(await online(p => !!p.alice && !!p.bob)).toEqual({
+      alice: true,
+      bob: true,
+    });
+  });
+
+  it('removes a client from the list when it goes offline, and restores it when it reconnects', async () => {
+    goOffline(bob.db);
+    expect(await online(p => !p.bob)).toEqual({ alice: true });
+
+    // The same tracking call re-asserts itself: nothing is called again.
+    goOnline(bob.db);
+    expect(await online(p => !!p.bob)).toEqual({ alice: true, bob: true });
+  });
+
+  it('removes the entry when tracking stops, and leaves the others alone', async () => {
+    stopBob();
+    expect(await online(p => !p.bob)).toEqual({ alice: true });
+  });
+
+  it('keeps games apart', async () => {
+    expect(await online(() => true, 'presence-other-room')).toEqual({});
+  });
+
+  it('tracks a game on its own and clears it again on stop', async () => {
+    const stop = alice.service.trackPresence('presence-solo', 'alice');
+    expect(await online(p => !!p.alice, 'presence-solo')).toEqual({
+      alice: true,
+    });
+    stop();
+    expect(await online(p => !p.alice, 'presence-solo')).toEqual({});
+  });
+});
+
 describe('security rules', () => {
   it('blocks writes outside the known paths', async () => {
     await expect(set(ref(host.db, 'anything/else'), 1)).rejects.toThrow();
@@ -476,6 +561,46 @@ describe('security rules', () => {
     await expect(
       set(ref(second.db, `codes/${code}`), 'hijacked'),
     ).rejects.toThrow();
+  });
+
+  describe('presence', () => {
+    it('accepts a boolean and lets it be removed again', async () => {
+      const entry = ref(host.db, 'presence/rules-game/p1');
+      await set(entry, true);
+      expect((await get(entry)).val()).toBe(true);
+      await set(entry, null);
+      expect((await get(entry)).exists()).toBe(false);
+    });
+
+    it.each([
+      ['a string', 'online'],
+      ['a number', 1],
+      ['an object', { online: true }],
+    ])('rejects %s as a presence value', async (_label, value) => {
+      await expect(
+        set(ref(host.db, 'presence/rules-game/p2'), value),
+      ).rejects.toThrow();
+    });
+
+    it('rejects a value nested under a player', async () => {
+      await expect(
+        set(ref(host.db, 'presence/rules-game/p3/extra'), true),
+      ).rejects.toThrow();
+    });
+
+    it('does not let a whole game, or the whole tree, be written or read in one go', async () => {
+      await expect(
+        set(ref(host.db, 'presence/rules-game'), { p4: true }),
+      ).rejects.toThrow();
+      await expect(set(ref(host.db, 'presence'), null)).rejects.toThrow();
+      await expect(get(ref(host.db, 'presence'))).rejects.toThrow();
+    });
+
+    it('lets everyone read the players of one game', async () => {
+      await set(ref(host.db, 'presence/rules-read/p1'), true);
+      const players = await get(ref(second.db, 'presence/rules-read'));
+      expect(players.val()).toEqual({ p1: true });
+    });
   });
 
   it('rejects a malformed game', async () => {

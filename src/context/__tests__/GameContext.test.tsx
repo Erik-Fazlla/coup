@@ -8,6 +8,8 @@ const mockGames = {
   createGame: jest.fn(),
   joinGame: jest.fn(),
   startGame: jest.fn(),
+  rematch: jest.fn(),
+  kickPlayer: jest.fn(),
   dispatch: jest.fn(),
   leaveLobby: jest.fn(),
   cancelLobby: jest.fn(),
@@ -106,6 +108,8 @@ beforeEach(() => {
   mockGames.cancelLobby.mockResolvedValue(undefined);
   mockGames.dispatch.mockResolvedValue(undefined);
   mockGames.startGame.mockResolvedValue(undefined);
+  mockGames.rematch.mockResolvedValue(undefined);
+  mockGames.kickPlayer.mockResolvedValue(undefined);
 });
 
 afterEach(async () => {
@@ -277,6 +281,72 @@ describe('acting', () => {
     expect(mockGames.startGame).not.toHaveBeenCalled();
     expect(value.error).toBeNull();
   });
+
+  it('asks for a rematch of the open game as this player', async () => {
+    await mountInGame({ ...playing(), status: 'finished' });
+    await act(async () => value.rematch());
+    expect(mockGames.rematch).toHaveBeenCalledWith('g1', 'me');
+    expect(value.error).toBeNull();
+    expect(value.busy).toBe(false);
+  });
+
+  it('kicks the chosen player from the open game as this player', async () => {
+    await mountInGame(lobby('me'));
+    await act(async () => value.kick('other'));
+    expect(mockGames.kickPlayer).toHaveBeenCalledWith('g1', 'me', 'other');
+    expect(value.error).toBeNull();
+  });
+
+  it('sends a skip for the open game as this player', async () => {
+    await mountInGame(playing());
+    await act(async () => value.skip());
+    expect(mockGames.dispatch).toHaveBeenCalledWith('g1', {
+      type: 'skip',
+      playerId: 'me',
+    });
+    expect(value.error).toBeNull();
+  });
+
+  it('does not rematch, kick or skip when no game is open', async () => {
+    await mount();
+    await act(async () => value.rematch());
+    await act(async () => value.kick('other'));
+    await act(async () => value.skip());
+    expect(mockGames.rematch).not.toHaveBeenCalled();
+    expect(mockGames.kickPlayer).not.toHaveBeenCalled();
+    expect(mockGames.dispatch).not.toHaveBeenCalled();
+    expect(value.error).toBeNull();
+  });
+
+  it.each([
+    [
+      'rematch',
+      'Only the host can start a new round',
+      () => value.rematch(),
+      () => mockGames.rematch,
+    ],
+    [
+      'kick',
+      'Only the host can remove players',
+      () => value.kick('other'),
+      () => mockGames.kickPlayer,
+    ],
+    [
+      'skip',
+      'Only the host can skip',
+      () => value.skip(),
+      () => mockGames.dispatch,
+    ],
+  ])(
+    'shows the error when a %s is rejected',
+    async (_label, message, call, mock) => {
+      mock().mockRejectedValueOnce(new Error(message));
+      await mountInGame(playing());
+      await act(async () => call());
+      expect(value.error).toBe(message);
+      expect(value.busy).toBe(false);
+    },
+  );
 
   it('shows a rejected action and clears it on the next attempt', async () => {
     mockGames.dispatch.mockRejectedValueOnce(new Error('It is not your turn'));

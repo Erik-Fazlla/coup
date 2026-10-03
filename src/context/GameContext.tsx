@@ -99,6 +99,12 @@ interface GameValue extends Omit<State, 'inFlight'> {
   joinGame: (code: string) => Promise<void>;
   startGame: () => Promise<void>;
   act: (action: GameAction) => Promise<void>;
+  /** Host only: takes a finished game back to the lobby for another round. */
+  rematch: () => Promise<void>;
+  /** Host only: removes a player from the lobby. */
+  kick: (targetId: string) => Promise<void>;
+  /** Host only: moves the game past whoever it is waiting on. */
+  skip: () => Promise<void>;
   leave: () => Promise<void>;
 }
 
@@ -200,6 +206,36 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [run, games, gameId],
   );
 
+  const rematch = useCallback(
+    () =>
+      run(async () => {
+        if (gameId) {
+          await games.rematch(gameId, playerId);
+        }
+      }),
+    [run, games, gameId, playerId],
+  );
+
+  const kick = useCallback(
+    (targetId: string) =>
+      run(async () => {
+        if (gameId) {
+          await games.kickPlayer(gameId, playerId, targetId);
+        }
+      }),
+    [run, games, gameId, playerId],
+  );
+
+  const skip = useCallback(
+    () =>
+      run(async () => {
+        if (gameId) {
+          await games.dispatch(gameId, { type: 'skip', playerId });
+        }
+      }),
+    [run, games, gameId, playerId],
+  );
+
   const leave = useCallback(
     () =>
       run(async () => {
@@ -225,9 +261,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       joinGame,
       startGame,
       act,
+      rematch,
+      kick,
+      skip,
       leave,
     };
-  }, [state, createGame, joinGame, startGame, act, leave]);
+  }, [state, createGame, joinGame, startGame, act, rematch, kick, skip, leave]);
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

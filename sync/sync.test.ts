@@ -439,6 +439,57 @@ describe('rematch', () => {
     });
   }, 60000);
 
+  it('leaves a guest who went Home after the game out of the next round', async () => {
+    const { id } = await threePlayerLobby();
+    await host.service.startGame(id, 'h');
+    let game = await seen(host.service, id, g => g.status === 'playing');
+    for (let step = 0; game.status === 'playing'; step++) {
+      expect(step).toBeLessThan(400);
+      const key = waitKey(game);
+      await host.service.dispatch(id, skipOf(game, 'h'));
+      game = await seen(host.service, id, g => waitKey(g) !== key);
+    }
+    const end = await seen(second.service, id, g => g.status === 'finished');
+
+    // Second taps "Back to Home" on the result screen.
+    await second.service.leaveLobby(id, 'p2');
+    const results = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.playerOrder.length === 2)),
+    );
+    results.forEach(result => {
+      expect(result.status).toBe('finished');
+      expect(result.playerOrder).toEqual(['h', 'p3']);
+      expect(result.players.p2).toBeUndefined();
+      expect(result.scores.p2).toBeUndefined();
+      // The result the others are looking at is untouched.
+      expect(result.winner).toBe(end.winner);
+      expect(result.eliminations).toEqual(end.eliminations);
+    });
+
+    // The host leaving the result screen never removes them: no rematch could follow.
+    await host.service.leaveLobby(id, 'h');
+    expect((await seen(host.service, id, () => true)).playerOrder).toEqual([
+      'h',
+      'p3',
+    ]);
+
+    await host.service.rematch(id, 'h');
+    const lobbies = await Promise.all(
+      [host, third].map(c => seen(c.service, id, g => g.status === 'waiting')),
+    );
+    lobbies.forEach(lobby => {
+      expect(lobby.round).toBe(2);
+      expect(lobby.playerOrder).toEqual(['h', 'p3']);
+      expect(Object.keys(lobby.players).sort()).toEqual(['h', 'p3']);
+    });
+
+    await host.service.startGame(id, 'h');
+    const next = await seen(third.service, id, g => g.status === 'playing');
+    expect(next.playerOrder).toEqual(['h', 'p3']);
+    // Round 2 of the two who stayed: the first turn goes to a player who is there.
+    expect(next.state.currentTurnPlayer).toBe('p3');
+  }, 60000);
+
   it('publishes a challenge reveal to every client', async () => {
     const { id } = await threePlayerLobby();
     await host.service.startGame(id, 'h');

@@ -1,4 +1,18 @@
-import { addPlayer, kickPlayer, newGame, rematch, startGame } from '../lobby';
+import {
+  eliminationLines,
+  revealLine,
+  revealLoserLine,
+  scoreboard,
+  statusLine,
+} from '../describe';
+import {
+  addPlayer,
+  kickPlayer,
+  newGame,
+  rematch,
+  removePlayer,
+  startGame,
+} from '../lobby';
 import { deepFreeze, identityRng, makeGame, play } from '../testHelpers';
 import { Game, IllegalActionError } from '../types';
 
@@ -265,5 +279,127 @@ describe('rematch', () => {
     const before = JSON.stringify(end);
     rematch(end, 'a', identityRng);
     expect(JSON.stringify(end)).toBe(before);
+  });
+});
+
+describe('leaving once the game is over', () => {
+  /** The finished game with wins from earlier rounds for b and c as well. */
+  const scored = (): Game => ({
+    ...finished(),
+    scores: { a: 1, b: 2, c: 1 },
+  });
+
+  it('frees the seat of a guest who goes home', () => {
+    const end = scored();
+    const after = removePlayer(deepFreeze(end), 'b');
+    expect(after.playerOrder).toEqual(['a', 'c']);
+    expect(after.players.b).toBeUndefined();
+    expect(after.scores).toEqual({ a: 1, c: 1 });
+    // The result everyone else is still looking at stays as it was.
+    expect(after.status).toBe('finished');
+    expect(after.winner).toBe(end.winner);
+    expect(after.eliminations).toEqual(end.eliminations);
+    expect(after.reveal).toEqual(end.reveal);
+    expect(after.log).toEqual(end.log);
+    expect(after.round).toBe(end.round);
+  });
+
+  it('does nothing for the host, a stranger or a game still being played', () => {
+    const end = scored();
+    expect(removePlayer(end, 'a')).toBe(end);
+    expect(removePlayer(end, 'stranger')).toBe(end);
+    const playing = makeGame({
+      a: ['Duke', 'Duke'],
+      b: ['Captain', 'Captain'],
+    });
+    expect(removePlayer(playing, 'b')).toBe(playing);
+  });
+
+  it('keeps them out of the next round', () => {
+    const lobby = rematch(removePlayer(scored(), 'b'), 'a', identityRng);
+    expect(lobby.status).toBe('waiting');
+    expect(lobby.playerOrder).toEqual(['a', 'c']);
+    expect(Object.keys(lobby.players)).toEqual(['a', 'c']);
+    expect(lobby.scores).toEqual({ a: 1, c: 1 });
+
+    const second = startGame(lobby, 'a', identityRng);
+    expect(second.playerOrder).toEqual(['a', 'c']);
+    // Round 2 of the two who stayed: the first turn can only go to one of them.
+    expect(second.state.currentTurnPlayer).toBe('c');
+    expect(second.players.b).toBeUndefined();
+  });
+
+  it('still returns to the lobby when only the host is left, which then needs a second player', () => {
+    const alone = removePlayer(removePlayer(scored(), 'b'), 'c');
+    const lobby = rematch(alone, 'a', identityRng);
+    expect(lobby.status).toBe('waiting');
+    expect(lobby.playerOrder).toEqual(['a']);
+    expect(() => startGame(lobby, 'a', identityRng)).toThrow(
+      'Need at least 2 players',
+    );
+    expect(addPlayer(lobby, 'd', 'Dee').playerOrder).toEqual(['a', 'd']);
+  });
+
+  it('lets a winner who is not the host leave too', () => {
+    const end: Game = { ...scored(), winner: 'c', scores: { c: 1 } };
+    const after = removePlayer(end, 'c');
+    expect(after.winner).toBe('c');
+    expect(after.scores).toEqual({});
+    expect(rematch(after, 'a', identityRng).playerOrder).toEqual(['a', 'b']);
+  });
+
+  it('lets them join again as a new player once the lobby is open', () => {
+    const lobby = rematch(removePlayer(scored(), 'b'), 'a', identityRng);
+    expect(addPlayer(lobby, 'b', 'B').playerOrder).toEqual(['a', 'c', 'b']);
+  });
+});
+
+describe('a finished game one player has left', () => {
+  /** b took c out, then left; a won. A challenge involving b was the last reveal. */
+  const afterLeaving = (): Game => {
+    const end = finished();
+    return removePlayer(
+      {
+        ...end,
+        scores: { a: 1, b: 2 },
+        eliminations: [
+          { playerId: 'c', by: 'b', turn: 3 },
+          { playerId: 'b', by: 'a', turn: 4 },
+        ],
+        reveal: {
+          id: 1,
+          challenger: 'a',
+          claimant: 'b',
+          card: 'Duke',
+          truthful: false,
+          block: false,
+        },
+      },
+      'b',
+    );
+  };
+
+  it('lists only the players still there on the scoreboard', () => {
+    expect(scoreboard(afterLeaving())).toEqual([
+      { playerId: 'a', name: 'A', wins: 1 },
+      { playerId: 'c', name: 'C', wins: 0 },
+    ]);
+  });
+
+  it('still tells how it went, with a stand-in for the missing name', () => {
+    const lines = eliminationLines(afterLeaving());
+    expect(lines).toEqual([
+      'C — taken out by ? (turn 3)',
+      '? — taken out by A (turn 4)',
+    ]);
+    lines.forEach(line => expect(line).not.toContain('undefined'));
+  });
+
+  it('describes the last reveal and the result without throwing', () => {
+    const game = afterLeaving();
+    expect(revealLine(game)).toBe('? was bluffing — no Duke');
+    expect(revealLoserLine(game)).toBe('? loses a card');
+    expect(statusLine(game)).toBe('A wins');
+    expect(statusLine({ ...game, winner: 'b' })).toBe('? wins');
   });
 });

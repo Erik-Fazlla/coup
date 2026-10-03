@@ -716,8 +716,10 @@ describe('leaving', () => {
   });
 
   it.each([
-    ['playing', playing()],
-    ['finished', { ...playing(), status: 'finished' as const }],
+    ['being played, as the host', playing()],
+    ['being played, as a guest', { ...playing(), host: 'other' }],
+    // The others can still read the result; nobody is left to start another round.
+    ['finished, as the host', { ...playing(), status: 'finished' as const }],
   ])('leaves locally only when the game is %s', async (_label, game) => {
     await mountInGame(game);
     await act(async () => value.leave());
@@ -725,6 +727,48 @@ describe('leaving', () => {
     expect(mockGames.cancelLobby).not.toHaveBeenCalled();
     expect(mockProfiles.setActiveGameId).toHaveBeenCalledWith(null);
     expect(value.gameId).toBeNull();
+  });
+
+  describe('a guest on a finished game', () => {
+    const over = (): Game => ({
+      ...playing(),
+      host: 'other',
+      status: 'finished',
+    });
+
+    it('frees their seat on the server before leaving locally', async () => {
+      const order: string[] = [];
+      mockGames.leaveLobby.mockImplementation(async () => {
+        order.push('server');
+      });
+      mockProfiles.setActiveGameId.mockImplementation(async () => {
+        order.push('local');
+      });
+      await mountInGame(over());
+      await act(async () => value.leave());
+
+      expect(mockGames.leaveLobby).toHaveBeenCalledTimes(1);
+      expect(mockGames.leaveLobby).toHaveBeenCalledWith('g1', 'me');
+      expect(mockGames.cancelLobby).not.toHaveBeenCalled();
+      expect(order).toEqual(['server', 'local']);
+      expect(value.gameId).toBeNull();
+    });
+
+    it('stays on the result with the error when the server call fails', async () => {
+      mockGames.leaveLobby.mockRejectedValue(new Error('network down'));
+      await mountInGame(over());
+      await act(async () => value.leave());
+      expect(value.gameId).toBe('g1');
+      expect(value.error).toBe('network down');
+      expect(mockProfiles.setActiveGameId).not.toHaveBeenCalled();
+    });
+
+    it('leaves locally only when offline', async () => {
+      await mountInGame(over(), false);
+      await act(async () => value.leave());
+      expect(mockGames.leaveLobby).not.toHaveBeenCalled();
+      expect(value.gameId).toBeNull();
+    });
   });
 
   it('leaves locally when the game never loaded', async () => {

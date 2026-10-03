@@ -97,9 +97,17 @@ export function addPlayer(game: Game, playerId: string, name: string): Game {
   return next;
 }
 
+/**
+ * A guest leaves: from the lobby, or from a finished game so their seat is free
+ * before the next round. Does nothing for the host or while a round is being played.
+ *
+ * On a finished game the result (`winner`, `eliminations`, `reveal`, `log`) is left
+ * as it was and may still name the player who left; everything that describes a
+ * game falls back to a stand-in for a name it cannot find.
+ */
 export function removePlayer(game: Game, playerId: string): Game {
   if (
-    game.status !== 'waiting' ||
+    game.status === 'playing' ||
     playerId === game.host ||
     !game.players[playerId]
   ) {
@@ -108,6 +116,9 @@ export function removePlayer(game: Game, playerId: string): Game {
   const next = clone(game);
   next.playerOrder = next.playerOrder.filter(id => id !== playerId);
   delete next.players[playerId];
+  if (game.status === 'finished') {
+    delete next.scores[playerId];
+  }
   return next;
 }
 

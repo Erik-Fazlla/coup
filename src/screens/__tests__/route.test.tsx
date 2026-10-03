@@ -92,6 +92,17 @@ describe('routeFor', () => {
     expect(routeFor(open(after, true), 'maria')).toBe('blank');
   });
 
+  it('shows nothing while a guest is leaving a finished game', () => {
+    // Their seat is freed a moment before this phone forgets the game.
+    const over: Game = { ...lobby(), status: 'finished' };
+    const after = removePlayer(over, 'maria');
+    expect(after.players.maria).toBeUndefined();
+    expect(routeFor(open(after, true), 'maria')).toBe('blank');
+    // Anyone else who is merely busy keeps the result on screen.
+    expect(routeFor(open(after, true), 'nikos')).toBe('over');
+    expect(routeFor(open(after), 'maria')).toBe('over');
+  });
+
   it('gives a player who is simply not in the lobby a way out', () => {
     expect(routeFor(open(removePlayer(lobby(), 'maria')), 'maria')).toBe(
       'left',

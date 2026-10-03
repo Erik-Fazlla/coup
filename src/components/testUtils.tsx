@@ -1,10 +1,42 @@
 import React from 'react';
+import { Keyboard } from 'react-native';
 import {
   act,
   create,
   ReactTestInstance,
   ReactTestRenderer,
 } from 'react-test-renderer';
+
+type KeyboardHandler = (event: unknown) => void;
+
+/**
+ * Stands in for the system keyboard. Call before rendering; `show` and `hide`
+ * tell every listener what the real keyboard would, and `restore` puts the
+ * real one back.
+ */
+export function fakeKeyboard() {
+  const original = Keyboard.addListener;
+  const listeners: Record<string, Set<KeyboardHandler>> = {};
+  const tell = (event: string, payload: unknown) =>
+    act(() => {
+      listeners[event]?.forEach(handler => handler(payload));
+    });
+  (Keyboard as { addListener: unknown }).addListener = (
+    event: string,
+    handler: KeyboardHandler,
+  ) => {
+    (listeners[event] ??= new Set()).add(handler);
+    return { remove: () => listeners[event].delete(handler) };
+  };
+  return {
+    show: (height: number) =>
+      tell('keyboardDidShow', { endCoordinates: { height } }),
+    hide: () => tell('keyboardDidHide', {}),
+    restore: () => {
+      (Keyboard as { addListener: unknown }).addListener = original;
+    },
+  };
+}
 
 /** Renders inside `act`, as every component test needs. */
 export function render(element: React.ReactElement): ReactTestRenderer {

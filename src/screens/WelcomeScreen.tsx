@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
 import { CharacterStrip } from '../components/CharacterStrip';
 import { Panel } from '../components/Panel';
@@ -7,12 +7,14 @@ import { Screen } from '../components/Screen';
 import { useProfile } from '../context/ProfileContext';
 import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { colors, radius, spacing, TOUCH_MIN, typography } from '../theme';
+import { useKeyboardInset } from '../ui/keyboard';
 
 export function WelcomeScreen() {
   const { setName, startupError } = useProfile();
   const [text, setText] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const keyboardInset = useKeyboardInset();
   const name = text.trim();
   const canContinue = name.length > 0 && !saving;
   const error = saveError ?? startupError;
@@ -33,7 +35,17 @@ export function WelcomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.columns}>
+      {/* A scroll view so the field can be reached with the keyboard up. `flexGrow: 1` on its
+          content is safe: the scroll view itself has a definite height (`flex: 1` in the screen),
+          so the content is at least that tall and the block stays centred in it. */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.columns,
+          { paddingBottom: keyboardInset },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.brand}>
           <Text style={styles.title}>COUP</Text>
           <CharacterStrip size={30} />
@@ -55,18 +67,25 @@ export function WelcomeScreen() {
             placeholder="Name"
             placeholderTextColor={colors.muted}
             autoCorrect={false}
+            // In landscape Android would otherwise replace the whole screen with the keyboard's own edit field.
+            disableFullscreenUI
+            underlineColorAndroid="transparent"
             accessibilityLabel="Player name"
           />
           <Button label="Continue" disabled={!canContinue} onPress={submit} />
         </Panel>
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
+  // With the keyboard up, its height is added as bottom padding: the block is then centred
+  // in what is left above the keyboard, or can be scrolled there. If the window itself
+  // shrinks on some phone, that padding is only extra scrollable space.
   columns: {
-    flex: 1,
+    flexGrow: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',

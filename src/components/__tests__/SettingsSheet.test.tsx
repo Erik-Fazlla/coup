@@ -1,9 +1,15 @@
 import React from 'react';
-import { BackHandler, Switch, TextInput } from 'react-native';
+import {
+  BackHandler,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+} from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import { playSound } from '../../ui/sound';
 import { SettingsSheet } from '../SettingsSheet';
-import { render, rendered } from '../testUtils';
+import { fakeKeyboard, render, rendered } from '../testUtils';
 
 const mockSetName = jest.fn();
 const mockUpdate = jest.fn();
@@ -225,6 +231,34 @@ describe('SettingsSheet name', () => {
     await pressButton(renderer, 'Save');
     expect(nameField(renderer)!.props.value).toBe('Maria');
     expect(rendered(renderer)).toContain('Could not save your name');
+  });
+
+  it('keeps the field in the app, not in the keyboard’s own full-screen editor', async () => {
+    const renderer = open();
+    await pressButton(renderer, 'Change name');
+    expect(nameField(renderer)!.props.disableFullscreenUI).toBe(true);
+    expect(nameField(renderer)!.props.underlineColorAndroid).toBe(
+      'transparent',
+    );
+  });
+
+  it('leaves room under the settings for the keyboard while it is up', async () => {
+    const keyboard = fakeKeyboard();
+    try {
+      const renderer = open();
+      const padding = () =>
+        StyleSheet.flatten(
+          renderer.root.findByType(ScrollView).props.contentContainerStyle,
+        ).paddingBottom;
+      const resting = padding();
+      await pressButton(renderer, 'Change name');
+      keyboard.show(264);
+      expect(padding()).toBe(resting + 264);
+      keyboard.hide();
+      expect(padding()).toBe(resting);
+    } finally {
+      keyboard.restore();
+    }
   });
 
   it('limits the name to 16 characters', async () => {

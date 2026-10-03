@@ -1,7 +1,8 @@
 import React from 'react';
-import { Dimensions, TextInput } from 'react-native';
-import { act } from 'react-test-renderer';
+import { Dimensions, StyleSheet, TextInput } from 'react-native';
+import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
+  fakeKeyboard,
   findButton,
   press,
   render,
@@ -45,6 +46,15 @@ beforeEach(() => {
 afterEach(() => {
   jest.restoreAllMocks();
 });
+
+/** The style of what scrolls on Home: the two panels. */
+const content = (renderer: ReactTestRenderer) =>
+  StyleSheet.flatten(
+    renderer.root.find(
+      node =>
+        typeof node.type !== 'string' && !!node.props.contentContainerStyle,
+    ).props.contentContainerStyle,
+  );
 
 describe('HomeScreen', () => {
   it('shows the player name and stats, with no name field of its own', () => {
@@ -117,13 +127,31 @@ describe('HomeScreen', () => {
       jest
         .spyOn(Dimensions, 'get')
         .mockReturnValue({ width, height, scale: 1, fontScale: 1 });
-      const content = render(<HomeScreen />).root.find(
-        node =>
-          typeof node.type !== 'string' && !!node.props.contentContainerStyle,
-      ).props.contentContainerStyle;
-      return content.flexDirection ?? 'column';
+      return content(render(<HomeScreen />)).flexDirection ?? 'column';
     };
     expect(direction(640, 360)).toBe('row');
     expect(direction(360, 640)).toBe('column');
+  });
+
+  it('keeps the code field in the app, not in the keyboard’s own full-screen editor', () => {
+    const input = render(<HomeScreen />).root.findByType(TextInput);
+    expect(input.props.disableFullscreenUI).toBe(true);
+    expect(input.props.underlineColorAndroid).toBe('transparent');
+  });
+
+  it('leaves room under the panels for the keyboard while it is up', () => {
+    const keyboard = fakeKeyboard();
+    try {
+      const renderer = render(<HomeScreen />);
+      expect(content(renderer).paddingBottom).toBe(0);
+      keyboard.show(264);
+      expect(content(renderer).paddingBottom).toBe(264);
+      // Still the same layout, only with space to scroll into.
+      expect(content(renderer).flexGrow).toBe(1);
+      keyboard.hide();
+      expect(content(renderer).paddingBottom).toBe(0);
+    } finally {
+      keyboard.restore();
+    }
   });
 });

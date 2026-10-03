@@ -1,8 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Player } from '../engine/types';
-import { colors, spacing } from '../theme';
-import { CardView } from './CardView';
+import { colors, DENSE_FONT_SCALE, spacing, typography } from '../theme';
+import { CharacterCard } from './CharacterCard';
 
 interface Props {
   player: Player;
@@ -13,35 +13,35 @@ interface Props {
 /** Shown when the local player must choose which of their hidden cards to lose. */
 export function LoseInfluencePicker({ player, disabled, onPick }: Props) {
   return (
-    <View>
-      <Text style={styles.prompt}>Choose a card to lose</Text>
-      <ScrollView
-        horizontal
-        keyboardShouldPersistTaps="handled"
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.row}
-      >
+    <View style={styles.picker}>
+      <Text style={styles.prompt} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+        Choose a card to lose
+      </Text>
+      <View style={styles.row}>
         {player.influence.map((influence, index) =>
           influence.revealed ? null : (
-            <CardView
+            <CharacterCard
               key={index}
+              testID={`lose-card-${index}`}
               card={influence.card}
+              abilityLines={3}
               disabled={disabled}
               onPress={() => onPick(index)}
             />
           ),
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  picker: { flex: 1 },
   prompt: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 13,
-    marginLeft: spacing.xs,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', alignItems: 'center' },
+  row: { flex: 1, flexDirection: 'row', gap: 6 },
 });

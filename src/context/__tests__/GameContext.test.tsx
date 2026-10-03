@@ -15,6 +15,8 @@ const mockGames = {
   cancelLobby: jest.fn(),
   subscribe: jest.fn(),
   subscribeConnection: jest.fn(),
+  trackPresence: jest.fn(),
+  subscribePresence: jest.fn(),
 };
 const mockProfiles = {
   getActiveGameId: jest.fn(),
@@ -44,6 +46,15 @@ let renderer: ReactTestRenderer;
 let subscriptions: Record<string, Subscription>;
 let setConnected: (connected: boolean) => void;
 let connectionUnsubscribe: jest.Mock;
+let watchers: Record<
+  string,
+  {
+    onChange: (online: Record<string, true>) => void;
+    onUnavailable?: () => void;
+    unsubscribe: jest.Mock;
+  }
+>;
+let trackers: Record<string, jest.Mock>;
 
 function Probe() {
   value = useGame();
@@ -93,6 +104,8 @@ function playing(): Game {
 beforeEach(() => {
   jest.clearAllMocks();
   subscriptions = {};
+  watchers = {};
+  trackers = {};
   connectionUnsubscribe = jest.fn();
   mockGames.subscribe.mockImplementation((gameId, onGame, onError) => {
     const unsubscribe = jest.fn();
@@ -103,6 +116,18 @@ beforeEach(() => {
     setConnected = onChange;
     return connectionUnsubscribe;
   });
+  mockGames.trackPresence.mockImplementation((gameId: string) => {
+    const stop = jest.fn();
+    trackers[gameId] = stop;
+    return stop;
+  });
+  mockGames.subscribePresence.mockImplementation(
+    (gameId: string, onChange: any, onUnavailable?: () => void) => {
+      const unsubscribe = jest.fn();
+      watchers[gameId] = { onChange, onUnavailable, unsubscribe };
+      return unsubscribe;
+    },
+  );
   mockProfiles.setActiveGameId.mockResolvedValue(undefined);
   mockGames.leaveLobby.mockResolvedValue(undefined);
   mockGames.cancelLobby.mockResolvedValue(undefined);
@@ -194,6 +219,120 @@ describe('startup', () => {
     await act(async () => renderer.unmount());
     expect(subscriptions.g1.unsubscribe).toHaveBeenCalledTimes(1);
     expect(connectionUnsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('presence', () => {
+  it('starts tracking this player and watching the game once a game is open', async () => {
+    await mount('g1');
+    expect(mockGames.trackPresence).toHaveBeenCalledTimes(1);
+    expect(mockGames.trackPresence).toHaveBeenCalledWith('g1', 'me');
+    expect(mockGames.subscribePresence).toHaveBeenCalledTimes(1);
+    expect(mockGames.subscribePresence).toHaveBeenCalledWith(
+      'g1',
+      expect.any(Function),
+      expect.any(Function),
+    );
+  });
+
+  it('does nothing while no game is open', async () => {
+    await mount();
+    expect(mockGames.trackPresence).not.toHaveBeenCalled();
+    expect(mockGames.subscribePresence).not.toHaveBeenCalled();
+    expect(value.online).toEqual({});
+  });
+
+  it('exposes who is online and follows changes', async () => {
+    await mountInGame(playing());
+    expect(value.online).toEqual({});
+    await act(async () => watchers.g1.onChange({ me: true }));
+    expect(value.online).toEqual({ me: true });
+    await act(async () => watchers.g1.onChange({ me: true, other: true }));
+    expect(value.online).toEqual({ me: true, other: true });
+    await act(async () => watchers.g1.onChange({ other: true }));
+    expect(value.online).toEqual({ other: true });
+  });
+
+  it('exposes null once presence turns out to be unavailable', async () => {
+    await mountInGame(playing());
+    await act(async () => watchers.g1.onChange({ me: true }));
+    await act(async () => watchers.g1.onUnavailable?.());
+    expect(value.online).toBeNull();
+    // Presence is display-only: the game itself carries on and shows no error.
+    expect(value.error).toBeNull();
+    expect(value.game).not.toBeNull();
+  });
+
+  it('keeps tracking across game updates instead of restarting', async () => {
+    const game = playing();
+    await mountInGame(game);
+    await act(async () =>
+      subscriptions.g1.onGame({ ...game, log: ['something'] }),
+    );
+    await act(async () =>
+      subscriptions.g1.onGame({
+        ...game,
+        state: { ...game.state, turnNumber: 2 },
+      }),
+    );
+    expect(mockGames.trackPresence).toHaveBeenCalledTimes(1);
+    expect(mockGames.subscribePresence).toHaveBeenCalledTimes(1);
+    expect(trackers.g1).not.toHaveBeenCalled();
+    expect(watchers.g1.unsubscribe).not.toHaveBeenCalled();
+  });
+
+  it('stops both and starts again for another game when the game id changes', async () => {
+    mockGames.joinGame.mockResolvedValue('g2');
+    await mountInGame(playing());
+    await act(async () => watchers.g1.onChange({ me: true, other: true }));
+    await act(async () => value.joinGame('ABCDE'));
+
+    expect(trackers.g1).toHaveBeenCalledTimes(1);
+    expect(watchers.g1.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(mockGames.trackPresence).toHaveBeenLastCalledWith('g2', 'me');
+    expect(mockGames.subscribePresence).toHaveBeenLastCalledWith(
+      'g2',
+      expect.any(Function),
+      expect.any(Function),
+    );
+    // The old game's players are not shown for the new one.
+    expect(value.online).toEqual({});
+  });
+
+  it('shows presence again for the next game after it was unavailable', async () => {
+    mockGames.joinGame.mockResolvedValue('g2');
+    await mountInGame(playing());
+    await act(async () => watchers.g1.onUnavailable?.());
+    expect(value.online).toBeNull();
+    await act(async () => value.joinGame('ABCDE'));
+    expect(value.online).toEqual({});
+    await act(async () => watchers.g2.onChange({ me: true }));
+    expect(value.online).toEqual({ me: true });
+  });
+
+  it('stops both when the player leaves the game', async () => {
+    await mountInGame({ ...playing(), status: 'finished' });
+    await act(async () => value.leave());
+    expect(value.gameId).toBeNull();
+    expect(trackers.g1).toHaveBeenCalledTimes(1);
+    expect(watchers.g1.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(value.online).toEqual({});
+  });
+
+  it('stops both on unmount', async () => {
+    await mountInGame(playing());
+    await act(async () => renderer.unmount());
+    expect(trackers.g1).toHaveBeenCalledTimes(1);
+    expect(watchers.g1.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a presence update that arrives for a game that is no longer open', async () => {
+    mockGames.joinGame.mockResolvedValue('g2');
+    await mountInGame(playing());
+    const oldWatcher = watchers.g1;
+    await act(async () => value.joinGame('ABCDE'));
+    await act(async () => oldWatcher.onChange({ stale: true }));
+    expect(value.online).toEqual({});
   });
 });
 

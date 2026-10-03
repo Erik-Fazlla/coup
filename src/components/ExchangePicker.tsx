@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '../engine/types';
-import { colors, spacing } from '../theme';
-import { Button } from './Button';
-import { CardView } from './CardView';
+import {
+  colors,
+  DENSE_FONT_SCALE,
+  radius,
+  spacing,
+  TOUCH_MIN,
+  typography,
+} from '../theme';
+import { CharacterCard } from './CharacterCard';
 
 interface Props {
   options: Card[];
@@ -20,6 +26,7 @@ export function ExchangePicker({
   onConfirm,
 }: Props) {
   const [selected, setSelected] = useState<number[]>([]);
+  const ready = !disabled && selected.length === keepCount;
 
   const toggle = (index: number) =>
     setSelected(current => {
@@ -30,45 +37,69 @@ export function ExchangePicker({
     });
 
   return (
-    <View>
-      <Text style={styles.prompt}>
-        Choose {keepCount} card{keepCount === 1 ? '' : 's'} to keep
+    <View style={styles.picker}>
+      <Text style={styles.prompt} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+        Choose {keepCount} card{keepCount === 1 ? '' : 's'} to keep ·{' '}
+        {selected.length}/{keepCount} chosen
       </Text>
       <View style={styles.row}>
-        <ScrollView
-          horizontal
-          keyboardShouldPersistTaps="handled"
-          showsHorizontalScrollIndicator={false}
-          style={styles.cards}
-          contentContainerStyle={styles.cardsContent}
-        >
-          {options.map((card, index) => (
-            <CardView
-              key={index}
-              card={card}
-              selected={selected.includes(index)}
-              onPress={() => toggle(index)}
-            />
-          ))}
-        </ScrollView>
-        <Button
-          label="Confirm"
-          disabled={disabled || selected.length !== keepCount}
+        {options.map((card, index) => (
+          <CharacterCard
+            key={index}
+            testID={`exchange-card-${index}`}
+            card={card}
+            abilityLines={3}
+            selected={selected.includes(index)}
+            onPress={() => toggle(index)}
+          />
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Confirm"
+          accessibilityState={{ disabled: !ready }}
+          disabled={!ready}
           onPress={() => onConfirm(selected)}
-        />
+          testID="exchange-confirm"
+          style={({ pressed }) => [
+            styles.confirm,
+            pressed && styles.pressed,
+            !ready && styles.disabled,
+          ]}
+        >
+          <Text
+            style={styles.confirmText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            maxFontSizeMultiplier={DENSE_FONT_SCALE}
+          >
+            Confirm
+          </Text>
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  picker: { flex: 1 },
   prompt: {
-    color: colors.text,
-    fontSize: 13,
-    marginLeft: spacing.xs,
+    ...typography.caption,
+    color: colors.primary,
+    fontWeight: '700',
     marginBottom: spacing.xs,
   },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  cards: { flexGrow: 0, flexShrink: 1 },
-  cardsContent: { alignItems: 'center' },
+  row: { flex: 1, flexDirection: 'row', gap: 6 },
+  confirm: {
+    width: 72,
+    minHeight: TOUCH_MIN,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  confirmText: { ...typography.label, color: colors.onLight },
+  pressed: { opacity: 0.7 },
+  disabled: { opacity: 0.35 },
 });

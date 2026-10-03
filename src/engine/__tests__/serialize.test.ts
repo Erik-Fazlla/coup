@@ -1,4 +1,4 @@
-import { newGame, rematch } from '../lobby';
+import { addPlayer, kickPlayer, newGame, rematch } from '../lobby';
 import { normalizeGame } from '../serialize';
 import { identityRng, makeGame, play } from '../testHelpers';
 import { IllegalActionError } from '../types';
@@ -112,6 +112,16 @@ describe('normalizeGame', () => {
       'a',
       identityRng,
     );
+    expect(normalizeGame(firebaseLike(lobby))).toEqual(lobby);
+  });
+
+  it('round-trips a lobby with a kicked player', () => {
+    const lobby = kickPlayer(
+      addPlayer(newGame('p1', 'P1', 'ABCDE', 1000), 'p2', 'P2'),
+      'p1',
+      'p2',
+    );
+    expect(lobby.kicked).toEqual({ p2: true });
     expect(normalizeGame(firebaseLike(lobby))).toEqual(lobby);
   });
 

@@ -65,12 +65,16 @@ export function newGame(
     eliminations: [],
     reveal: null,
     revealSeq: 0,
+    kicked: {},
   };
 }
 
 export function addPlayer(game: Game, playerId: string, name: string): Game {
   if (game.players[playerId]) {
     return game;
+  }
+  if (game.kicked[playerId]) {
+    throw new IllegalActionError('The host removed you from this game');
   }
   const cleaned = cleanName(name);
   if (game.status !== 'waiting') {
@@ -104,6 +108,28 @@ export function removePlayer(game: Game, playerId: string): Game {
   const next = clone(game);
   next.playerOrder = next.playerOrder.filter(id => id !== playerId);
   delete next.players[playerId];
+  return next;
+}
+
+/** The host removes a player from the lobby. That player cannot join this game again. */
+export function kickPlayer(game: Game, hostId: string, targetId: string): Game {
+  if (hostId !== game.host) {
+    throw new IllegalActionError('Only the host can remove players');
+  }
+  if (game.status !== 'waiting') {
+    throw new IllegalActionError('Players can only be removed in the lobby');
+  }
+  if (targetId === game.host) {
+    throw new IllegalActionError('The host cannot be removed');
+  }
+  if (!game.players[targetId]) {
+    throw new IllegalActionError('That player is not in this game');
+  }
+  const next = clone(game);
+  next.playerOrder = next.playerOrder.filter(id => id !== targetId);
+  delete next.players[targetId];
+  delete next.scores[targetId];
+  next.kicked[targetId] = true;
   return next;
 }
 

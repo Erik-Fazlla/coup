@@ -11,6 +11,7 @@ import {
   SEAT_GAP,
   SEAT_HEIGHT,
   tableLayout,
+  TILE_GAP,
   TOP_BAR_HEIGHT,
 } from '../tableLayout';
 import { TopBar } from '../TopBar';
@@ -93,6 +94,108 @@ describe('tableLayout', () => {
     expect(layout.bottomHeight).toBeGreaterThan(128);
     expect(layout.bottomHeight).toBeLessThanOrEqual(170);
   });
+
+  it('keeps the landscape layout side by side with four action columns', () => {
+    const layout = tableLayout(616, 344, 5);
+    expect(layout.portrait).toBe(false);
+    expect(layout.actionColumns).toBe(4);
+    expect(layout.handHeight).toBe(layout.bottomHeight);
+    expect(layout.controlsHeight).toBe(layout.bottomHeight);
+  });
+});
+
+describe('tableLayout in portrait', () => {
+  /** Top bar, seats, banner, hand and action grid stacked, with a gap between each. */
+  const used = (width: number, height: number, opponents: number) => {
+    const layout = tableLayout(width, height, opponents);
+    const seats =
+      layout.seatRows * SEAT_HEIGHT + (layout.seatRows - 1) * SEAT_GAP;
+    return (
+      TOP_BAR_HEIGHT +
+      seats +
+      layout.bannerHeight +
+      layout.handHeight +
+      layout.controlsHeight +
+      4 * REGION_GAP
+    );
+  };
+  /** Four rows of tiles with three gaps. */
+  const tileHeight = (controls: number) => (controls - 3 * TILE_GAP) / 4;
+
+  it('fits a 360x640 phone with five opponents without scrolling', () => {
+    // 360x640 minus the table padding of 12 per side and 8 top and bottom.
+    const layout = tableLayout(336, 624, 5);
+    expect(layout.portrait).toBe(true);
+    expect(layout.actionColumns).toBe(2);
+    // Seats: three in the first row, two in the second.
+    expect(layout.seatsPerRow).toBe(3);
+    expect(layout.seatRows).toBe(2);
+    expect(layout.seatWidth).toBe(108);
+    expect(layout.seatWidth * 3 + SEAT_GAP * 2).toBeLessThanOrEqual(336);
+    expect(layout.compactSeats).toBe(true);
+    // 44 top bar + 118 seats + 112 banner + 100 hand + 226 actions + 4 gaps of 6 = 624.
+    expect(layout.bannerHeight).toBe(112);
+    expect(layout.handHeight).toBe(100);
+    expect(layout.controlsHeight).toBe(226);
+    expect(layout.bottomHeight).toBe(100 + REGION_GAP + 226);
+    expect(layout.handAbilityLines).toBe(2);
+    expect(tileHeight(layout.controlsHeight)).toBe(52);
+    expect(used(336, 624, 5)).toBe(624);
+  });
+
+  it('still fits when system bars take 56 more off the height', () => {
+    const layout = tableLayout(336, 568, 5);
+    expect(layout.handHeight).toBe(100);
+    expect(layout.controlsHeight).toBe(226);
+    expect(layout.bannerHeight).toBe(56);
+    expect(used(336, 568, 5)).toBe(568);
+  });
+
+  it('gives up the ability text, then tile height, before the banner line', () => {
+    const tight = tableLayout(336, 520, 5);
+    expect(tight.handHeight).toBeLessThan(100);
+    expect(tight.handHeight).toBeGreaterThanOrEqual(76);
+    expect(tight.handAbilityLines).toBe(0);
+    expect(tight.controlsHeight).toBe(226);
+    expect(tight.bannerHeight).toBe(BANNER_MIN_HEIGHT);
+    expect(used(336, 520, 5)).toBe(520);
+
+    const tighter = tableLayout(336, 490, 5);
+    expect(tighter.handHeight).toBe(76);
+    expect(tileHeight(tighter.controlsHeight)).toBeGreaterThanOrEqual(44);
+    expect(tighter.controlsHeight).toBeLessThan(226);
+    expect(tighter.bannerHeight).toBe(BANNER_MIN_HEIGHT);
+    expect(used(336, 490, 5)).toBe(490);
+  });
+
+  it('keeps every tile, seat and hand card at least 44 high and wide', () => {
+    [624, 568, 520, 490].forEach(height => {
+      const layout = tableLayout(336, height, 5);
+      expect(tileHeight(layout.controlsHeight)).toBeGreaterThanOrEqual(44);
+      expect((336 - TILE_GAP) / 2).toBeGreaterThanOrEqual(44);
+      expect(layout.seatWidth).toBeGreaterThanOrEqual(44);
+      // The hand panel has 2 of border and 6 of padding on each side.
+      expect(layout.handHeight - 16).toBeGreaterThanOrEqual(44);
+    });
+  });
+
+  it('never lets seats drop below their minimum width, adding rows instead', () => {
+    // A 320-wide phone: only two seats fit per row.
+    const layout = tableLayout(296, 624, 5);
+    expect(layout.seatsPerRow).toBe(2);
+    expect(layout.seatRows).toBe(3);
+    expect(layout.seatWidth).toBeGreaterThanOrEqual(108);
+    expect(used(296, 624, 5)).toBe(624);
+  });
+
+  it('uses one row of seats for up to three opponents and grows on a tall phone', () => {
+    const layout = tableLayout(388, 836, 3);
+    expect(layout.seatRows).toBe(1);
+    expect(layout.seatsPerRow).toBe(3);
+    expect(tileHeight(layout.controlsHeight)).toBe(64);
+    expect(layout.handHeight).toBe(116);
+    expect(used(388, 836, 3)).toBe(836);
+  });
 });
 
 describe('EventBanner', () => {
@@ -168,13 +271,20 @@ describe('LogSheet', () => {
 });
 
 describe('TopBar', () => {
-  const bar = (connected: boolean, onLeave = jest.fn()) =>
+  const bar = (
+    connected: boolean,
+    onLeave = jest.fn(),
+    onRules = jest.fn(),
+    compact = false,
+  ) =>
     render(
       <TopBar
         turn={7}
         deck={9}
         code="ABCDE"
         connected={connected}
+        compact={compact}
+        onRules={onRules}
         onLeave={onLeave}
       />,
     );
@@ -193,12 +303,38 @@ describe('TopBar', () => {
     expect(rendered(bar(false))).toContain('Reconnecting');
   });
 
-  it('has a Leave button and no Rules button yet', () => {
+  it('has a Leave button and a Rules button', () => {
     const onLeave = jest.fn();
-    const renderer = bar(true, onLeave);
+    const onRules = jest.fn();
+    const renderer = bar(true, onLeave, onRules);
     press(renderer, 'leave');
     expect(onLeave).toHaveBeenCalledTimes(1);
-    expect(rendered(renderer)).not.toContain('Rules');
+    expect(onRules).not.toHaveBeenCalled();
+    press(renderer, 'rules');
+    expect(onRules).toHaveBeenCalledTimes(1);
+    expect(button(renderer, 'rules').props.accessibilityLabel).toBe('Rules');
+  });
+
+  it('keeps both buttons, every stat and their spoken labels on a narrow bar', () => {
+    const renderer = bar(true, jest.fn(), jest.fn(), true);
+    expect(findButton(renderer, 'rules')).toBeDefined();
+    expect(findButton(renderer, 'leave')).toBeDefined();
+    const labels = renderer.root
+      .findAll(node => typeof node.type === 'string')
+      .map(node => node.props.accessibilityLabel);
+    expect(labels).toEqual(
+      expect.arrayContaining(['Turn 7', 'Deck 9', 'Code ABCDE']),
+    );
+    // No room for the brand on a narrow bar.
+    expect(texts(renderer)).not.toContain('COUP');
+  });
+
+  it('shows the connection warning in place of the stats on a narrow bar', () => {
+    const renderer = bar(false, jest.fn(), jest.fn(), true);
+    expect(rendered(renderer)).toContain('Reconnecting');
+    expect(rendered(renderer)).not.toContain('Turn 7');
+    expect(findButton(renderer, 'rules')).toBeDefined();
+    expect(findButton(renderer, 'leave')).toBeDefined();
   });
 });
 

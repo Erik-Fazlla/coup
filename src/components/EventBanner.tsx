@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   colors,
   radius,
@@ -8,6 +8,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { useEnter } from '../ui/motion';
 import { BANNER_MIN_HEIGHT } from './tableLayout';
 
 /** Below this height there is only room for the first line. */
@@ -43,6 +44,9 @@ export function EventBanner({
   const second = error ?? secondary;
   const showSecond = !!second && (height === null || height >= TWO_LINES_FROM);
   const wrap = height !== null && height >= WRAP_FROM;
+  // A new line slides in, so the eye is drawn to what just changed.
+  const primaryEnter = useEnter(primary);
+  const secondEnter = useEnter(second ?? null);
 
   return (
     <Pressable
@@ -62,21 +66,21 @@ export function EventBanner({
     >
       <View style={[styles.marker, yours && styles.markerYours]} />
       <View style={styles.lines}>
-        <Text
-          style={[styles.primary, yours && styles.primaryYours]}
+        <Animated.Text
+          style={[styles.primary, yours && styles.primaryYours, primaryEnter]}
           numberOfLines={wrap ? 2 : 1}
           maxFontSizeMultiplier={READING_FONT_SCALE}
         >
           {primary}
-        </Text>
+        </Animated.Text>
         {showSecond && (
-          <Text
-            style={[styles.secondary, !!error && styles.error]}
+          <Animated.Text
+            style={[styles.secondary, !!error && styles.error, secondEnter]}
             numberOfLines={1}
             maxFontSizeMultiplier={READING_FONT_SCALE}
           >
             {second}
-          </Text>
+          </Animated.Text>
         )}
       </View>
       <Text style={styles.log} maxFontSizeMultiplier={1}>

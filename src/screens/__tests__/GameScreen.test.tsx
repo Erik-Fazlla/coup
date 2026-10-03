@@ -1,6 +1,14 @@
 import React from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, Dimensions, ScrollView, Vibration } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
+import { ActionGrid } from '../../components/ActionGrid';
+import { OnlineDot } from '../../components/OnlineDot';
+import { ResponseBar } from '../../components/ResponseBar';
+import { Seat } from '../../components/Seat';
+import { TopBar } from '../../components/TopBar';
+import { REVEAL_MS } from '../../ui/reveal';
+import { SKIP_AFTER_MS } from '../../ui/stalled';
+import { BUZZ_PATTERN } from '../../ui/turnBuzz';
 import {
   button,
   findButton,
@@ -17,13 +25,17 @@ import { GameScreen } from '../GameScreen';
 
 const mockAct = jest.fn();
 const mockLeave = jest.fn();
+const mockSkip = jest.fn();
+let mockVibration = true;
 let mockGameValue: {
   game: Game | null;
   connected: boolean;
   busy: boolean;
   error: string | null;
+  online: Record<string, true> | null;
   act: jest.Mock;
   leave: jest.Mock;
+  skip: jest.Mock;
 };
 
 jest.mock('../../context/GameContext', () => ({
@@ -31,6 +43,12 @@ jest.mock('../../context/GameContext', () => ({
 }));
 jest.mock('../../context/ProfileContext', () => ({
   useProfile: () => ({ playerId: 'me' }),
+}));
+jest.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { vibration: mockVibration, sound: true },
+    update: jest.fn(),
+  }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
@@ -44,20 +62,38 @@ function show(game: Game, overrides: Partial<typeof mockGameValue> = {}) {
     connected: true,
     busy: false,
     error: null,
+    // Presence has not arrived: no dots, as in every test that does not ask for them.
+    online: {},
     act: mockAct,
     leave: mockLeave,
+    skip: mockSkip,
     ...overrides,
   };
 }
 
+const mounted: ReactTestRenderer[] = [];
+
 function mount(game: Game, overrides: Partial<typeof mockGameValue> = {}) {
   show(game, overrides);
-  return render(<GameScreen />);
+  const renderer = render(<GameScreen />);
+  mounted.push(renderer);
+  return renderer;
+}
+
+/** The view on screen with this testID (not the component that was given it). */
+function host(renderer: ReactTestRenderer, testID: string) {
+  return renderer.root.find(
+    node => typeof node.type === 'string' && node.props.testID === testID,
+  );
 }
 
 /** Delivers a new snapshot of the game, as the subscription would. */
-function deliver(renderer: ReactTestRenderer, game: Game) {
-  show(game);
+function deliver(
+  renderer: ReactTestRenderer,
+  game: Game,
+  overrides: Partial<typeof mockGameValue> = {},
+) {
+  show(game, overrides);
   act(() => {
     renderer.update(<GameScreen />);
   });
@@ -77,9 +113,26 @@ const theirTurn = () =>
 const isTarget = (renderer: ReactTestRenderer, id: string) =>
   findButton(renderer, `seat-${id}`) !== undefined;
 
+let vibrate: jest.SpyInstance;
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockVibration = true;
+  vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
 });
+
+afterEach(() => {
+  // Unmounting stops the skip and reveal clocks, so no timer outlives its test.
+  mounted.splice(0).forEach(renderer => act(() => renderer.unmount()));
+  jest.restoreAllMocks();
+});
+
+/** Makes the window this size, as rotating the phone would. */
+function windowSize(width: number, height: number) {
+  jest
+    .spyOn(Dimensions, 'get')
+    .mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+}
 
 describe('GameScreen targeting', () => {
   it('sends a targeted action only after a seat is tapped', () => {
@@ -438,5 +491,379 @@ describe('GameScreen buttons', () => {
     expect(button(renderer, 'seat-other').props.accessibilityLabel).toBe(
       'Steal: OTHER, 2 coins, 2 hidden cards. Tap to target',
     );
+  });
+});
+
+describe('GameScreen turn buzz', () => {
+  it('buzzes when my turn starts, once', () => {
+    const renderer = mount(theirTurn());
+    expect(vibrate).not.toHaveBeenCalled();
+    deliver(renderer, myTurn());
+    deliver(renderer, myTurn());
+    expect(vibrate).toHaveBeenCalledTimes(1);
+    expect(vibrate).toHaveBeenCalledWith(BUZZ_PATTERN.turn);
+  });
+
+  it('stays silent when vibration is switched off in settings', () => {
+    mockVibration = false;
+    const renderer = mount(theirTurn());
+    deliver(renderer, myTurn());
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+
+  it('does not buzz someone who is only watching', () => {
+    mount(makeGame({ a: ['Duke', 'Captain'], b: ['Contessa', 'Assassin'] }));
+    expect(vibrate).not.toHaveBeenCalled();
+  });
+});
+
+describe('GameScreen challenge reveal', () => {
+  /** OTHER claims Duke without holding one, and I challenge. */
+  const bluffCalled = () =>
+    play(
+      theirTurn(),
+      { type: 'tax', playerId: 'other' },
+      { type: 'challenge', playerId: 'me' },
+    );
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const overlay = (renderer: ReactTestRenderer) =>
+    findButton(renderer, 'reveal-overlay');
+
+  it('shows a new challenge result in the middle of the table, then removes it', () => {
+    const renderer = mount(theirTurn());
+    expect(overlay(renderer)).toBeUndefined();
+
+    deliver(renderer, bluffCalled());
+    expect(overlay(renderer)).toBeDefined();
+    expect(texts(renderer)).toContain('OTHER was bluffing — no Duke');
+    expect(texts(renderer)).toContain('OTHER loses a card');
+    expect(overlay(renderer)!.props.accessibilityLabel).toBe(
+      'OTHER was bluffing — no Duke. OTHER loses a card. Tap to dismiss',
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(REVEAL_MS);
+    });
+    expect(overlay(renderer)).toBeUndefined();
+  });
+
+  it('says who pays when the claim was true', () => {
+    const game = myTurn();
+    const renderer = mount(game);
+    deliver(
+      renderer,
+      play(
+        game,
+        { type: 'tax', playerId: 'me' },
+        { type: 'challenge', playerId: 'other' },
+      ),
+    );
+    expect(texts(renderer)).toContain('ME had the Duke');
+    expect(texts(renderer)).toContain('OTHER loses a card');
+  });
+
+  it('goes away when tapped', () => {
+    const renderer = mount(theirTurn());
+    deliver(renderer, bluffCalled());
+    press(renderer, 'reveal-overlay');
+    expect(overlay(renderer)).toBeUndefined();
+  });
+
+  it('does not replay the last challenge when the game is opened again', () => {
+    const renderer = mount(bluffCalled());
+    expect(overlay(renderer)).toBeUndefined();
+    deliver(renderer, { ...bluffCalled(), log: ['a later snapshot'] });
+    expect(overlay(renderer)).toBeUndefined();
+  });
+
+  it('leaves the prompt I must answer on screen and usable once it is gone', () => {
+    // OTHER really holds the Duke, so my challenge costs me a card.
+    const start = makeGame({
+      other: ['Duke', 'Assassin'],
+      me: ['Duke', 'Captain'],
+    });
+    const renderer = mount(start);
+    deliver(
+      renderer,
+      play(
+        start,
+        { type: 'tax', playerId: 'other' },
+        { type: 'challenge', playerId: 'me' },
+      ),
+    );
+    expect(overlay(renderer)).toBeDefined();
+    expect(texts(renderer)).toContain('ME loses a card');
+    // The picker is already under the overlay, so nothing has to load when it leaves.
+    expect(findButton(renderer, 'lose-card-0')).toBeDefined();
+
+    act(() => {
+      jest.advanceTimersByTime(REVEAL_MS);
+    });
+    expect(overlay(renderer)).toBeUndefined();
+    press(renderer, 'lose-card-1');
+    expect(mockAct).toHaveBeenCalledWith({
+      type: 'loseInfluence',
+      playerId: 'me',
+      cardIndex: 1,
+    });
+  });
+});
+
+describe('GameScreen rules', () => {
+  it('opens the rules from the top bar and closes them again', () => {
+    const renderer = mount(myTurn());
+    expect(rendered(renderer)).not.toContain('rules-sheet');
+    press(renderer, 'rules');
+    expect(rendered(renderer)).toContain('rules-sheet');
+    ALL_ACTIONS.forEach(action =>
+      expect(
+        renderer.root.findAllByProps({ testID: `rule-${action}` }).length,
+      ).toBeGreaterThan(0),
+    );
+    act(() => {
+      renderer.root.findByProps({ label: 'Close' }).props.onPress();
+    });
+    expect(rendered(renderer)).not.toContain('rules-sheet');
+  });
+});
+
+describe('GameScreen host skip', () => {
+  /** I am the host (first to join) and the game waits for OTHER. */
+  const waitingForOther = () => {
+    const game = myTurn();
+    game.state.currentTurnPlayer = 'other';
+    return game;
+  };
+
+  const wait = (ms: number) =>
+    act(() => {
+      jest.advanceTimersByTime(ms);
+    });
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('offers the host a skip after 45 seconds of the same wait, naming who is skipped', () => {
+    const renderer = mount(waitingForOther());
+    wait(SKIP_AFTER_MS - 1);
+    expect(findButton(renderer, 'skip')).toBeUndefined();
+    wait(1);
+    expect(button(renderer, 'skip').props.accessibilityLabel).toBe(
+      'Skip OTHER',
+    );
+  });
+
+  it('asks before skipping, then calls skip', () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    const renderer = mount(waitingForOther());
+    wait(SKIP_AFTER_MS);
+    press(renderer, 'skip');
+    expect(mockSkip).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(alert.mock.calls[0][0]).toBe('Skip OTHER?');
+    const buttons = alert.mock.calls[0][2] ?? [];
+    buttons.find(option => option.text === 'Cancel')?.onPress?.();
+    expect(mockSkip).not.toHaveBeenCalled();
+    buttons.find(option => option.text === 'Skip')?.onPress?.();
+    expect(mockSkip).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the host skip their own turn too', () => {
+    const renderer = mount(myTurn());
+    wait(SKIP_AFTER_MS);
+    expect(button(renderer, 'skip').props.accessibilityLabel).toBe('Skip ME');
+  });
+
+  it('names everyone who has not responded', () => {
+    const game = makeGame({
+      me: ['Duke', 'Captain'],
+      other: ['Contessa', 'Assassin'],
+      third: ['Ambassador', 'Duke'],
+    });
+    const renderer = mount(play(game, { type: 'tax', playerId: 'me' }));
+    wait(SKIP_AFTER_MS);
+    expect(button(renderer, 'skip').props.accessibilityLabel).toBe(
+      'Skip OTHER, THIRD',
+    );
+  });
+
+  it('starts the count again when the game moves on', () => {
+    const game = waitingForOther();
+    const renderer = mount(game);
+    wait(SKIP_AFTER_MS - 1000);
+    const moved = waitingForOther();
+    moved.state.turnNumber = game.state.turnNumber + 1;
+    deliver(renderer, moved);
+    wait(1000);
+    expect(findButton(renderer, 'skip')).toBeUndefined();
+    wait(SKIP_AFTER_MS);
+    expect(findButton(renderer, 'skip')).toBeDefined();
+  });
+
+  it('takes the skip away as soon as the wait ends', () => {
+    const game = waitingForOther();
+    const renderer = mount(game);
+    wait(SKIP_AFTER_MS);
+    expect(findButton(renderer, 'skip')).toBeDefined();
+    deliver(renderer, play(game, { type: 'income', playerId: 'other' }));
+    expect(findButton(renderer, 'skip')).toBeUndefined();
+  });
+
+  it('is never offered to a player who is not the host', () => {
+    const renderer = mount(theirTurn());
+    wait(SKIP_AFTER_MS * 3);
+    expect(findButton(renderer, 'skip')).toBeUndefined();
+  });
+
+  it('cannot be used while offline', () => {
+    const renderer = mount(waitingForOther());
+    wait(SKIP_AFTER_MS);
+    deliver(renderer, waitingForOther(), { connected: false });
+    expect(isEnabled(renderer, 'skip')).toBe(false);
+  });
+});
+
+describe('GameScreen presence dots', () => {
+  const seatLabel = (renderer: ReactTestRenderer) =>
+    host(renderer, 'seat-other').props.accessibilityLabel as string;
+  const dots = (renderer: ReactTestRenderer) =>
+    renderer.root.findAllByType(OnlineDot).map(dot => dot.props.online);
+
+  it('marks an opponent who is connected', () => {
+    const renderer = mount(myTurn(), { online: { me: true, other: true } });
+    expect(dots(renderer)).toEqual([true]);
+    expect(seatLabel(renderer)).toBe('OTHER, 2 coins, 2 hidden cards, online');
+  });
+
+  it('marks an opponent who is not connected', () => {
+    const renderer = mount(myTurn(), { online: { me: true } });
+    expect(dots(renderer)).toEqual([false]);
+    expect(seatLabel(renderer)).toBe('OTHER, 2 coins, 2 hidden cards, offline');
+  });
+
+  it('draws no dots when presence cannot be read', () => {
+    const renderer = mount(myTurn(), { online: null });
+    expect(dots(renderer)).toEqual([]);
+    expect(seatLabel(renderer)).toBe('OTHER, 2 coins, 2 hidden cards');
+  });
+
+  it('draws no dots before the first presence snapshot that includes this phone', () => {
+    expect(dots(mount(myTurn(), { online: {} }))).toEqual([]);
+    expect(dots(mount(myTurn(), { online: { other: true } }))).toEqual([]);
+  });
+});
+
+describe('GameScreen orientation', () => {
+  const five = () =>
+    makeGame({
+      me: ['Duke', 'Captain'],
+      p1: ['Contessa', 'Assassin'],
+      p2: ['Contessa', 'Assassin'],
+      p3: ['Ambassador', 'Duke'],
+      p4: ['Ambassador', 'Captain'],
+      p5: ['Contessa', 'Assassin'],
+    });
+
+  it('uses four action columns and the full top bar in landscape', () => {
+    windowSize(640, 360);
+    const renderer = mount(five());
+    expect(renderer.root.findByType(ActionGrid).props.columns).toBe(4);
+    expect(renderer.root.findByType(TopBar).props.compact).toBe(false);
+    expect(
+      renderer.root.findAllByType(Seat).map(seat => seat.props.width),
+    ).toEqual([118, 118, 118, 118, 118]);
+  });
+
+  it('stacks the table with two action columns in portrait, and nothing scrolls', () => {
+    windowSize(360, 640);
+    const renderer = mount(five());
+    expect(renderer.root.findByType(ActionGrid).props.columns).toBe(2);
+    expect(renderer.root.findByType(TopBar).props.compact).toBe(true);
+    expect(renderer.root.findAllByType(ScrollView)).toHaveLength(0);
+    ALL_ACTIONS.forEach(action =>
+      expect(findButton(renderer, `action-${action}`)).toBeDefined(),
+    );
+    expect(
+      renderer.root.findAllByType(Seat).map(seat => seat.props.width),
+    ).toEqual([108, 108, 108, 108, 108]);
+  });
+
+  it('wraps the response tiles into two columns in portrait', () => {
+    windowSize(360, 640);
+    const game = play(theirTurn(), { type: 'tax', playerId: 'other' });
+    const renderer = mount(game);
+    expect(renderer.root.findByType(ResponseBar).props.columns).toBe(2);
+  });
+
+  it('follows the measured table size rather than the window', () => {
+    windowSize(640, 360);
+    const renderer = mount(five());
+    act(() => {
+      renderer.root
+        .findAll(node => typeof node.props.onLayout === 'function')[0]
+        .props.onLayout({
+          nativeEvent: { layout: { width: 336, height: 624 } },
+        });
+    });
+    expect(renderer.root.findByType(ActionGrid).props.columns).toBe(2);
+  });
+});
+
+describe('GameScreen hidden information with every overlay open', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('never names an opponent hidden card in the reveal, the log or the rules', () => {
+    const game = makeGame(
+      {
+        me: ['Duke', 'Captain'],
+        other: ['SecretOne' as Card, 'SecretTwo' as Card],
+        third: ['SecretThree' as Card, 'SecretFour' as Card],
+      },
+      { coins: { me: 8 } },
+    );
+    const secrets = ['SecretOne', 'SecretTwo', 'SecretThree', 'SecretFour'];
+    const expectNoLeak = (renderer: ReactTestRenderer) =>
+      secrets.forEach(name => expect(rendered(renderer)).not.toContain(name));
+
+    const renderer = mount(game, { online: { me: true, other: true } });
+    // I claim the Duke, THIRD challenges and is wrong: a reveal about my own card.
+    deliver(
+      renderer,
+      play(
+        game,
+        { type: 'tax', playerId: 'me' },
+        { type: 'challenge', playerId: 'third' },
+      ),
+      { online: { me: true, other: true } },
+    );
+    expect(findButton(renderer, 'reveal-overlay')).toBeDefined();
+    expectNoLeak(renderer);
+
+    press(renderer, 'event-banner');
+    expect(rendered(renderer)).toContain('log-sheet');
+    expectNoLeak(renderer);
+
+    press(renderer, 'rules');
+    expect(rendered(renderer)).toContain('rules-sheet');
+    expectNoLeak(renderer);
   });
 });

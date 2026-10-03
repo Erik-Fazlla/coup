@@ -15,6 +15,8 @@ interface Props {
   options: Card[];
   keepCount: number;
   disabled: boolean;
+  /** Narrow slot (portrait): Confirm goes under the cards instead of beside them. */
+  stacked?: boolean;
   onConfirm: (keep: number[]) => void;
 }
 
@@ -23,6 +25,7 @@ export function ExchangePicker({
   options,
   keepCount,
   disabled,
+  stacked = false,
   onConfirm,
 }: Props) {
   const [selected, setSelected] = useState<number[]>([]);
@@ -35,6 +38,33 @@ export function ExchangePicker({
       }
       return current.length < keepCount ? [...current, index] : current;
     });
+
+  const confirm = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Confirm"
+      accessibilityState={{ disabled: !ready }}
+      disabled={!ready}
+      onPress={() => onConfirm(selected)}
+      testID="exchange-confirm"
+      style={({ pressed }) => [
+        styles.confirm,
+        stacked ? styles.confirmBelow : styles.confirmBeside,
+        pressed && styles.pressed,
+        !ready && styles.disabled,
+      ]}
+    >
+      <Text
+        style={styles.confirmText}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+        maxFontSizeMultiplier={DENSE_FONT_SCALE}
+      >
+        Confirm
+      </Text>
+    </Pressable>
+  );
 
   return (
     <View style={styles.picker}>
@@ -53,30 +83,9 @@ export function ExchangePicker({
             onPress={() => toggle(index)}
           />
         ))}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Confirm"
-          accessibilityState={{ disabled: !ready }}
-          disabled={!ready}
-          onPress={() => onConfirm(selected)}
-          testID="exchange-confirm"
-          style={({ pressed }) => [
-            styles.confirm,
-            pressed && styles.pressed,
-            !ready && styles.disabled,
-          ]}
-        >
-          <Text
-            style={styles.confirmText}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-            maxFontSizeMultiplier={DENSE_FONT_SCALE}
-          >
-            Confirm
-          </Text>
-        </Pressable>
+        {!stacked && confirm}
       </View>
+      {stacked && confirm}
     </View>
   );
 }
@@ -91,7 +100,6 @@ const styles = StyleSheet.create({
   },
   row: { flex: 1, flexDirection: 'row', gap: 6 },
   confirm: {
-    width: 72,
     minHeight: TOUCH_MIN,
     borderRadius: radius.md,
     backgroundColor: colors.primary,
@@ -99,6 +107,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
   },
+  confirmBeside: { width: 72 },
+  confirmBelow: { marginTop: 6 },
   confirmText: { ...typography.label, color: colors.onLight },
   pressed: { opacity: 0.7 },
   disabled: { opacity: 0.35 },

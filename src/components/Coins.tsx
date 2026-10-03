@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { colors, DENSE_FONT_SCALE, spacing } from '../theme';
+import { useCountTick } from '../ui/motion';
 
 type Size = 'sm' | 'md' | 'lg';
 
@@ -12,9 +13,20 @@ interface Props {
   size?: Size;
 }
 
-/** A drawn coin and a number. Kept on its own so the count can be animated later. */
+/**
+ * A drawn coin and a number. When the count changes the number ticks to the
+ * new value with a small bump, green for a gain and red for a loss. A screen
+ * reader is always given the real count, never a number in between.
+ */
 export function Coins({ count, size = 'md' }: Props) {
   const diameter = DIAMETER[size];
+  const { shown, tint, scale } = useCountTick(count);
+  const color =
+    tint === 'gain'
+      ? colors.positive
+      : tint === 'loss'
+      ? colors.danger
+      : colors.coin;
   return (
     <View
       style={styles.row}
@@ -27,12 +39,15 @@ export function Coins({ count, size = 'md' }: Props) {
           { width: diameter, height: diameter, borderRadius: diameter / 2 },
         ]}
       />
-      <Text
-        style={[styles.count, { fontSize: FONT_SIZE[size] }]}
+      <Animated.Text
+        style={[
+          styles.count,
+          { fontSize: FONT_SIZE[size], color, transform: [{ scale }] },
+        ]}
         maxFontSizeMultiplier={DENSE_FONT_SCALE}
       >
-        {count}
-      </Text>
+        {shown}
+      </Animated.Text>
     </View>
   );
 }
@@ -45,5 +60,5 @@ const styles = StyleSheet.create({
     borderColor: colors.coinShade,
     marginRight: spacing.xs,
   },
-  count: { color: colors.coin, fontWeight: '800' },
+  count: { fontWeight: '800', fontVariant: ['tabular-nums'] },
 });

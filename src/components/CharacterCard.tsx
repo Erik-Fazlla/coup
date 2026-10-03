@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CHARACTER_INFO } from '../engine/describe';
 import { Card } from '../engine/types';
 import {
@@ -10,6 +10,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { useFlip } from '../ui/motion';
 import { CharacterGlyph } from './CharacterGlyph';
 
 const BADGE = 22;
@@ -29,7 +30,8 @@ interface Props {
 
 /**
  * One of the local player's own cards, face up. It fills the row it is placed in,
- * so the parent decides its size. With `onPress` it is a button.
+ * so the parent decides its size. With `onPress` it is a button. When it is lost
+ * it turns over to its lost face.
  */
 export function CharacterCard({
   card,
@@ -42,13 +44,16 @@ export function CharacterCard({
 }: Props) {
   const palette = characterColors[card];
   const ability = CHARACTER_INFO[card].ability;
+  // A screen reader hears the truth at once; the eye sees the card turn over.
   const label = lost ? `${card}, lost` : `${card}: ${ability}`;
-  const accent = lost ? colors.faint : palette.accent;
-  const fill = lost ? colors.background : palette.fill;
+  const flip = useFlip(lost);
+  const shownLost = flip.shown;
+  const accent = shownLost ? colors.faint : palette.accent;
+  const fill = shownLost ? colors.background : palette.fill;
   const face = [
     styles.card,
     { backgroundColor: fill, borderColor: accent },
-    lost && styles.lost,
+    shownLost && styles.lost,
     selected && styles.selected,
     disabled && styles.disabled,
   ];
@@ -64,19 +69,19 @@ export function CharacterCard({
             cutout={fill}
           />
         </View>
-        {lost && (
+        {shownLost && (
           <Text style={styles.lostTag} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
             LOST
           </Text>
         )}
-        {selected && !lost && (
+        {selected && !shownLost && (
           <View style={styles.tick}>
             <View style={styles.tickMark} />
           </View>
         )}
       </View>
       <Text
-        style={[styles.name, lost && styles.nameLost]}
+        style={[styles.name, shownLost && styles.nameLost]}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.7}
@@ -84,7 +89,7 @@ export function CharacterCard({
       >
         {card}
       </Text>
-      {!lost && abilityLines > 0 && (
+      {!shownLost && abilityLines > 0 && (
         <Text
           style={[styles.ability, { color: accent }]}
           numberOfLines={abilityLines}
@@ -98,9 +103,14 @@ export function CharacterCard({
 
   if (!onPress) {
     return (
-      <View accessible accessibilityLabel={label} testID={testID} style={face}>
+      <Animated.View
+        accessible
+        accessibilityLabel={label}
+        testID={testID}
+        style={[face, flip.style]}
+      >
         {content}
-      </View>
+      </Animated.View>
     );
   }
   return (

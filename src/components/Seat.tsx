@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { unrevealedCount } from '../engine/rules';
-import { Player } from '../engine/types';
+import { Influence, Player } from '../engine/types';
 import {
   colors,
   DENSE_FONT_SCALE,
@@ -9,9 +9,11 @@ import {
   spacing,
   typography,
 } from '../theme';
+import { useFlip } from '../ui/motion';
 import { CardBack } from './CardBack';
 import { Coins } from './Coins';
 import { MiniCard } from './MiniCard';
+import { OnlineDot } from './OnlineDot';
 import { SEAT_HEIGHT } from './tableLayout';
 
 export interface SeatTarget {
@@ -29,11 +31,31 @@ interface Props {
   width?: number;
   /** Set only while the local player is choosing a target and this player is a legal one. */
   target?: SeatTarget | null;
+  /** Whether this player's phone is connected; null or missing draws no dot. */
+  online?: boolean | null;
   testID?: string;
 }
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? '' : 's'}`;
+
+/**
+ * One of an opponent's two cards: a back while hidden, turning over to the
+ * lost card when it is revealed. The face is drawn only for a card that is
+ * revealed right now, so a hidden card can never show through the animation.
+ */
+function SeatCard({ influence }: { influence: Influence }) {
+  const flip = useFlip(influence.revealed);
+  return (
+    <Animated.View style={flip.style}>
+      {flip.shown && influence.revealed ? (
+        <MiniCard card={influence.card} />
+      ) : (
+        <CardBack />
+      )}
+    </Animated.View>
+  );
+}
 
 /**
  * One opponent: name, coins, face-down cards and the cards they have lost.
@@ -45,6 +67,7 @@ export function Seat({
   compact = false,
   width,
   target = null,
+  online = null,
   testID,
 }: Props) {
   const hidden = unrevealedCount(player);
@@ -58,6 +81,7 @@ export function Seat({
       : `${plural(player.coins, 'coin')}, ${plural(hidden, 'hidden card')}`,
     lost.length > 0 ? `lost ${lost.join(' and ')}` : null,
     isTurn ? 'their turn' : null,
+    online === null ? null : online ? 'online' : 'offline',
   ]
     .filter(Boolean)
     .join(', ');
@@ -80,6 +104,7 @@ export function Seat({
   const content = (
     <>
       <View style={styles.header}>
+        {online !== null && <OnlineDot online={online} />}
         <Text
           style={[styles.name, compact && styles.nameCompact]}
           numberOfLines={1}
@@ -107,13 +132,9 @@ export function Seat({
           <Coins count={player.coins} size="sm" />
         )}
         <View style={styles.cards}>
-          {player.influence.map((influence, index) =>
-            influence.revealed ? (
-              <MiniCard key={index} card={influence.card} />
-            ) : (
-              <CardBack key={index} />
-            ),
-          )}
+          {player.influence.map((influence, index) => (
+            <SeatCard key={index} influence={influence} />
+          ))}
         </View>
       </View>
     </>

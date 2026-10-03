@@ -20,8 +20,12 @@ export const colors = {
   dangerFill: '#4a1414',
   coin: '#f5c542',
   coinShade: '#a67c00',
+  /** A player who is connected, and a number that just went up. */
+  positive: '#4ade80',
   onLight: '#000000',
   scrim: 'rgba(0, 0, 0, 0.9)',
+  /** Behind a short-lived overlay: the table stays visible through it. */
+  scrimLight: 'rgba(0, 0, 0, 0.72)',
   /** Thin edge that lifts a coloured tile off the black table. */
   edge: 'rgba(255, 255, 255, 0.12)',
   /** Dark well behind a glyph on a coloured card. */

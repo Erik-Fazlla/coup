@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   CharacterPalette,
   colors,
@@ -7,6 +7,7 @@ import {
   radius,
   TOUCH_MIN,
 } from '../theme';
+import { usePressScale } from '../ui/motion';
 
 interface Props {
   label: string;
@@ -38,6 +39,7 @@ export function ActionTile({
   testID,
 }: Props) {
   const large = size === 'large';
+  const { scale, onPressIn, onPressOut } = usePressScale();
   return (
     <Pressable
       accessibilityRole="button"
@@ -45,47 +47,60 @@ export function ActionTile({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={onPress}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
       testID={testID}
-      style={({ pressed }) => [
-        styles.tile,
-        { backgroundColor: palette.fill },
-        selected && styles.selected,
-        pressed && styles.pressed,
-        disabled && styles.disabled,
-      ]}
+      style={styles.touch}
     >
-      {icon ? <View style={styles.icon}>{icon}</View> : null}
-      <Text
-        style={[styles.label, large && styles.labelLarge]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-        maxFontSizeMultiplier={DENSE_FONT_SCALE}
-      >
-        {label}
-      </Text>
-      <Text
-        style={[
-          styles.detail,
-          large && styles.detailLarge,
-          { color: palette.accent },
-        ]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
-        maxFontSizeMultiplier={DENSE_FONT_SCALE}
-      >
-        {detail}
-      </Text>
+      {({ pressed }) => (
+        // The touch target keeps its size; only the face dips under the finger.
+        <Animated.View
+          style={[
+            styles.tile,
+            { backgroundColor: palette.fill },
+            selected && styles.selected,
+            pressed && styles.pressed,
+            disabled && styles.disabled,
+            { transform: [{ scale }] },
+          ]}
+        >
+          {icon ? <View style={styles.icon}>{icon}</View> : null}
+          <Text
+            style={[styles.label, large && styles.labelLarge]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={DENSE_FONT_SCALE}
+          >
+            {label}
+          </Text>
+          <Text
+            style={[
+              styles.detail,
+              large && styles.detailLarge,
+              { color: palette.accent },
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.7}
+            maxFontSizeMultiplier={DENSE_FONT_SCALE}
+          >
+            {detail}
+          </Text>
+        </Animated.View>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  tile: {
+  touch: {
     flex: 1,
     minWidth: TOUCH_MIN,
     minHeight: TOUCH_MIN,
+  },
+  tile: {
+    flex: 1,
     paddingHorizontal: 7,
     borderRadius: radius.md,
     borderWidth: 2,
@@ -94,7 +109,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   selected: { borderColor: colors.primary },
-  pressed: { opacity: 0.7 },
+  pressed: { opacity: 0.8 },
   disabled: { opacity: 0.38 },
   icon: { marginBottom: 4 },
   label: {

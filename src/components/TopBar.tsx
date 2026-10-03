@@ -15,66 +15,146 @@ interface Props {
   deck: number;
   code: string;
   connected: boolean;
+  /** Narrow (portrait) bar: no brand, tighter stats, so both buttons always fit. */
+  compact?: boolean;
+  onRules: () => void;
   onLeave: () => void;
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  compact,
+  bare = false,
+}: {
+  label: string;
+  value: string;
+  compact: boolean;
+  /** Value only; the label is still spoken. */
+  bare?: boolean;
+}) {
   return (
     <View
-      style={styles.stat}
+      style={[styles.stat, compact && styles.statCompact]}
       accessible
       accessibilityLabel={`${label} ${value}`}
     >
-      <Text style={styles.statLabel} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
-        {label.toUpperCase()}
-      </Text>
-      <Text style={styles.statValue} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+      {!bare && (
+        <Text style={styles.statLabel} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+          {label.toUpperCase()}
+        </Text>
+      )}
+      <Text
+        style={styles.statValue}
+        numberOfLines={1}
+        maxFontSizeMultiplier={DENSE_FONT_SCALE}
+      >
         {value}
       </Text>
     </View>
   );
 }
 
-/** Turn number, deck count, join code, connection state and the way out. One fixed-height row. */
-export function TopBar({ turn, deck, code, connected, onLeave }: Props) {
+function BarButton({
+  label,
+  accessibilityLabel,
+  compact,
+  onPress,
+  testID,
+}: {
+  label: string;
+  accessibilityLabel: string;
+  compact: boolean;
+  onPress: () => void;
+  testID: string;
+}) {
   return (
-    <View style={styles.bar}>
-      <Text style={styles.brand} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
-        COUP
-      </Text>
-      <Stat label="Turn" value={String(turn)} />
-      <Stat label="Deck" value={String(deck)} />
-      <Stat label="Code" value={code} />
-      <View style={styles.status}>
-        {!connected && (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      testID={testID}
+      style={styles.touch}
+    >
+      {({ pressed }) => (
+        <View
+          style={[
+            styles.pill,
+            compact && styles.pillCompact,
+            pressed && styles.pressed,
+          ]}
+        >
           <Text
-            style={styles.offline}
+            style={styles.pillText}
             numberOfLines={1}
-            accessibilityLiveRegion="polite"
             maxFontSizeMultiplier={DENSE_FONT_SCALE}
           >
-            Reconnecting… actions paused
+            {label}
+          </Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/**
+ * Turn number, deck count, join code, connection state, the rules and the way
+ * out. One fixed-height row. The two buttons never shrink: when the bar is too
+ * narrow it is the stats on the left that are clipped.
+ */
+export function TopBar({
+  turn,
+  deck,
+  code,
+  connected,
+  compact = false,
+  onRules,
+  onLeave,
+}: Props) {
+  // A narrow bar has no spare room for the warning, so it takes the place of the stats.
+  const warningOnly = compact && !connected;
+  return (
+    <View style={styles.bar}>
+      <View style={styles.info}>
+        {!compact && (
+          <Text style={styles.brand} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+            COUP
           </Text>
         )}
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Leave game"
-        onPress={onLeave}
-        testID="leave"
-        style={styles.leaveTouch}
-      >
-        {({ pressed }) => (
-          <View style={[styles.leave, pressed && styles.pressed]}>
+        {!warningOnly && (
+          <>
+            <Stat label="Turn" value={String(turn)} compact={compact} />
+            <Stat label="Deck" value={String(deck)} compact={compact} />
+            <Stat label="Code" value={code} compact={compact} bare={compact} />
+          </>
+        )}
+        <View style={[styles.status, warningOnly && styles.statusLeft]}>
+          {!connected && (
             <Text
-              style={styles.leaveText}
+              style={styles.offline}
+              numberOfLines={compact ? 2 : 1}
+              accessibilityLiveRegion="polite"
               maxFontSizeMultiplier={DENSE_FONT_SCALE}
             >
-              Leave
+              Reconnecting… actions paused
             </Text>
-          </View>
-        )}
-      </Pressable>
+          )}
+        </View>
+      </View>
+      <BarButton
+        label="Rules"
+        accessibilityLabel="Rules"
+        compact={compact}
+        onPress={onRules}
+        testID="rules"
+      />
+      <BarButton
+        label="Leave"
+        accessibilityLabel="Leave game"
+        compact={compact}
+        onPress={onLeave}
+        testID="leave"
+      />
     </View>
   );
 }
@@ -84,6 +164,12 @@ const styles = StyleSheet.create({
     height: TOP_BAR_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  info: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
   },
   brand: {
     color: colors.text,
@@ -103,23 +189,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  statCompact: { marginRight: spacing.xs, paddingHorizontal: 6 },
   statLabel: { ...typography.micro, color: colors.muted, marginRight: 5 },
   statValue: { ...typography.label, color: colors.text },
   status: { flex: 1, alignItems: 'flex-end', paddingHorizontal: spacing.sm },
+  statusLeft: { alignItems: 'flex-start', paddingLeft: 0 },
   offline: {
     ...typography.caption,
     color: colors.danger,
     fontWeight: '700',
   },
   // The touch target is the full bar height; the visible pill inside it is smaller.
-  leaveTouch: {
+  touch: {
     height: TOP_BAR_HEIGHT,
     minWidth: TOUCH_MIN,
+    marginLeft: spacing.xs,
     justifyContent: 'center',
   },
-  leave: {
+  pill: {
     height: 34,
-    minWidth: 68,
+    minWidth: 64,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,
     borderWidth: 1,
@@ -128,6 +217,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pillCompact: { minWidth: 52, paddingHorizontal: spacing.sm },
   pressed: { opacity: 0.7 },
-  leaveText: { ...typography.label, color: colors.text },
+  pillText: { ...typography.label, color: colors.text },
 });

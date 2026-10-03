@@ -428,6 +428,8 @@ describe('rematch', () => {
     );
     second2.forEach(next => {
       expect(next.round).toBe(2);
+      // The first turn moves along one seat each round.
+      expect(next.state.currentTurnPlayer).toBe('p2');
       expect(next.scores).toEqual({ [winner]: 1 });
       expect(next.deck).toHaveLength(9);
       expect(next.players.p3.influence).toHaveLength(2);

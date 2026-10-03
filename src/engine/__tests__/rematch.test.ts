@@ -1,4 +1,4 @@
-import { addPlayer, newGame, rematch, startGame } from '../lobby';
+import { addPlayer, kickPlayer, newGame, rematch, startGame } from '../lobby';
 import { deepFreeze, identityRng, makeGame, play } from '../testHelpers';
 import { Game, IllegalActionError } from '../types';
 
@@ -46,6 +46,81 @@ describe('rounds and scores', () => {
   it('does not touch the scores while the game is still going', () => {
     const start = makeGame({ a: ['Duke', 'Captain'], b: ['Contessa', 'Duke'] });
     expect(play(start, { type: 'income', playerId: 'a' }).scores).toEqual({});
+  });
+});
+
+describe('who takes the first turn of a round', () => {
+  /** A waiting lobby of `ids` (the first is the host) that is about to play `round`. */
+  function lobbyForRound(ids: string[], round: number): Game {
+    const lobby = ids
+      .slice(1)
+      .reduce(
+        (game, id) => addPlayer(game, id, id.toUpperCase()),
+        newGame(ids[0], ids[0].toUpperCase(), 'ABCDE', 0),
+      );
+    return { ...lobby, round };
+  }
+
+  it.each([
+    [1, 'a'],
+    [2, 'b'],
+    [3, 'c'],
+  ])('round %i of three players starts with %s', (round, starter) => {
+    const started = startGame(
+      lobbyForRound(['a', 'b', 'c'], round),
+      'a',
+      identityRng,
+    );
+    expect(started.state.currentTurnPlayer).toBe(starter);
+    expect(started.state.phase).toBe('action');
+    expect(started.state.turnNumber).toBe(1);
+  });
+
+  it('wraps back to the host after everyone has had a go', () => {
+    const start = (round: number) =>
+      startGame(lobbyForRound(['a', 'b', 'c'], round), 'a', identityRng).state
+        .currentTurnPlayer;
+    expect([4, 5, 6, 7].map(start)).toEqual(['a', 'b', 'c', 'a']);
+  });
+
+  it('follows the players still in the lobby after someone leaves or is kicked', () => {
+    const four = lobbyForRound(['a', 'b', 'c', 'd'], 3);
+    const three = kickPlayer(four, 'a', 'b');
+    expect(three.playerOrder).toEqual(['a', 'c', 'd']);
+    // Round 3 of three players: index 2 of the remaining order.
+    expect(startGame(three, 'a', identityRng).state.currentTurnPlayer).toBe(
+      'd',
+    );
+  });
+
+  it('gives the first turn to the host in a two-player lobby, then alternates', () => {
+    const start = (round: number) =>
+      startGame(lobbyForRound(['a', 'b'], round), 'a', identityRng).state
+        .currentTurnPlayer;
+    expect([1, 2, 3, 4].map(start)).toEqual(['a', 'b', 'a', 'b']);
+  });
+
+  it('moves the first turn to the next player after a rematch', () => {
+    const first = startGame(
+      lobbyForRound(['a', 'b', 'c'], 1),
+      'a',
+      identityRng,
+    );
+    expect(first.state.currentTurnPlayer).toBe('a');
+    const second = startGame(
+      rematch(finished(), 'a', identityRng),
+      'a',
+      identityRng,
+    );
+    expect(second.round).toBe(2);
+    expect(second.state.currentTurnPlayer).toBe('b');
+    // Only the starter can act first.
+    expect(() => play(second, { type: 'income', playerId: 'a' })).toThrow(
+      'It is not your turn',
+    );
+    expect(
+      play(second, { type: 'income', playerId: 'b' }).state.currentTurnPlayer,
+    ).toBe('c');
   });
 });
 
@@ -97,11 +172,12 @@ describe('rematch', () => {
 
     const second = startGame(lobby, 'a', identityRng);
     expect(second.state.claimSeq).toBe(end.state.claimSeq);
-    const asked = play(second, { type: 'tax', playerId: 'a' });
+    // Round 2 starts with b, the next player after the host.
+    const asked = play(second, { type: 'tax', playerId: 'b' });
     expect(asked.state.claimSeq).toBe(end.state.claimSeq + 1);
     // A tap left over from the previous round carries a seq that can never be current again.
     expect(() =>
-      play(asked, { type: 'pass', playerId: 'b', seq: end.state.claimSeq }),
+      play(asked, { type: 'pass', playerId: 'a', seq: end.state.claimSeq }),
     ).toThrow('Too late: the game has moved on');
   });
 
@@ -133,8 +209,11 @@ describe('rematch', () => {
         },
       },
     };
+    // Round 2 starts with b, so a's first turn comes after b's.
     const end = play(
       rich,
+      { type: 'income', playerId: 'b' },
+      { type: 'income', playerId: 'c' },
       { type: 'coup', playerId: 'a', target: 'b' },
       { type: 'income', playerId: 'c' },
       { type: 'coup', playerId: 'a', target: 'c' },

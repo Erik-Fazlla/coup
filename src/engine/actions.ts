@@ -524,6 +524,14 @@ export function applyAction(game: Game, action: GameAction, rng: Rng): Game {
   ) {
     fail('Too late: the game has moved on');
   }
+  if (
+    action.type === 'skip' &&
+    (action.turn !== game.state.turnNumber ||
+      action.seq !== game.state.claimSeq ||
+      action.phase !== game.state.phase)
+  ) {
+    fail('Too late: the game has moved on');
+  }
   const g = clone(game);
   const id = action.playerId;
 

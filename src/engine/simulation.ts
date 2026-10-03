@@ -393,7 +393,13 @@ export function simulateGame(
     const before = deepFreeze(game);
     const move: GameAction =
       skipChance > 0 && rng() < skipChance
-        ? { type: 'skip', playerId: before.host }
+        ? {
+            type: 'skip',
+            playerId: before.host,
+            turn: before.state.turnNumber,
+            seq: before.state.claimSeq,
+            phase: before.state.phase,
+          }
         : chooseMove(before, rng, mood);
     history.push(JSON.stringify(move));
     let problem: string | null;

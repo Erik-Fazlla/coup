@@ -131,8 +131,12 @@ export type GameAction =
   | { type: 'block'; playerId: string; claim: Card; seq: number }
   | { type: 'loseInfluence'; playerId: string; cardIndex: number }
   | { type: 'exchangeChoose'; playerId: string; keep: number[] }
-  /** Host only: does the minimal default for whoever the game is waiting on. */
-  | { type: 'skip'; playerId: string };
+  /**
+   * Host only: does the minimal default for whoever the game is waiting on. `turn`, `seq` and `phase`
+   * are what the host saw (`turnNumber`, `claimSeq`, `phase`); if any has changed the skip is refused,
+   * so it can never land on a later wait than the one the host meant.
+   */
+  | { type: 'skip'; playerId: string; turn: number; seq: number; phase: Phase };
 
 export type DeclareAction = Extract<GameAction, { type: ActionType }>;
 

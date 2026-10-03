@@ -229,11 +229,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const skip = useCallback(
     () =>
       run(async () => {
-        if (gameId) {
-          await games.dispatch(gameId, { type: 'skip', playerId });
+        // Stamped with what this screen shows, so a skip that arrives after the game moved is refused.
+        if (gameId && game) {
+          await games.dispatch(gameId, {
+            type: 'skip',
+            playerId,
+            turn: game.state.turnNumber,
+            seq: game.state.claimSeq,
+            phase: game.state.phase,
+          });
         }
       }),
-    [run, games, gameId, playerId],
+    [run, games, gameId, game, playerId],
   );
 
   const leave = useCallback(

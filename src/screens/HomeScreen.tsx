@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
 import { CharacterStrip } from '../components/CharacterStrip';
 import { ConnectionBanner } from '../components/ConnectionBanner';
 import { Panel } from '../components/Panel';
+import { RulesSheet } from '../components/RulesSheet';
 import { Screen } from '../components/Screen';
+import { SettingsSheet } from '../components/SettingsSheet';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
-import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { winRate } from '../profile/profileStore';
-import { colors, radius, spacing, TOUCH_MIN, typography } from '../theme';
+import {
+  colors,
+  radius,
+  READING_FONT_SCALE,
+  spacing,
+  TOUCH_MIN,
+  typography,
+} from '../theme';
+import { useIsPortrait } from '../ui/orientation';
 
 const CODE_LENGTH = 5;
 
@@ -20,180 +29,144 @@ function Stat({ label, value }: { label: string; value: string }) {
       accessible
       accessibilityLabel={`${label}: ${value}`}
     >
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label.toUpperCase()}</Text>
+      <Text style={styles.statValue} maxFontSizeMultiplier={READING_FONT_SCALE}>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} maxFontSizeMultiplier={READING_FONT_SCALE}>
+        {label.toUpperCase()}
+      </Text>
     </View>
   );
 }
 
 export function HomeScreen() {
-  const { profile, setName } = useProfile();
+  const { profile } = useProfile();
   const { connected, busy, error, createGame, joinGame } = useGame();
+  const portrait = useIsPortrait();
   const [code, setCode] = useState('');
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [savingName, setSavingName] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+  const closeRules = useCallback(() => setRulesOpen(false), []);
   const disabled = !connected || busy;
   const canJoin = !disabled && code.trim().length === CODE_LENGTH;
-  const newName = draft.trim();
-  const canSave = newName.length > 0 && !savingName;
+  const sheetOpen = settingsOpen || rulesOpen;
 
   if (!profile) {
     return null;
   }
 
-  const startEditing = () => {
-    setDraft(profile.name);
-    setNameError(null);
-    setEditing(true);
-  };
-
-  // Stats stay with the profile; the new name applies to games joined from now on.
-  const saveName = async () => {
-    if (!canSave) {
-      return;
-    }
-    if (newName === profile.name) {
-      setEditing(false);
-      return;
-    }
-    setSavingName(true);
-    setNameError(null);
-    try {
-      await setName(newName);
-      setEditing(false);
-    } catch {
-      setNameError('Could not save your name on this device. Try again.');
-    } finally {
-      setSavingName(false);
-    }
-  };
-
   return (
     <Screen>
-      <ConnectionBanner connected={connected} />
-      <View style={styles.columns}>
-        <Panel style={styles.column}>
-          <Text style={styles.you}>PLAYER</Text>
-          {editing ? (
-            <>
-              <TextInput
-                style={styles.nameInput}
-                value={draft}
-                onChangeText={setDraft}
-                onSubmitEditing={saveName}
-                returnKeyType="done"
-                maxLength={MAX_NAME_LENGTH}
-                autoFocus
-                autoCorrect={false}
-                placeholder="Name"
-                placeholderTextColor={colors.muted}
-                accessibilityLabel="Player name"
-              />
-              <View style={styles.nameButtons}>
-                <Button label="Save" disabled={!canSave} onPress={saveName} />
-                <Button
-                  label="Cancel"
-                  variant="secondary"
-                  onPress={() => setEditing(false)}
-                />
-              </View>
-              {nameError && (
-                <Text style={styles.error} accessibilityLiveRegion="polite">
-                  {nameError}
-                </Text>
-              )}
-            </>
-          ) : (
-            <>
-              <Text style={styles.heading} numberOfLines={1}>
+      <View style={styles.body}>
+        <View
+          style={styles.body}
+          accessibilityElementsHidden={sheetOpen}
+          importantForAccessibility={sheetOpen ? 'no-hide-descendants' : 'auto'}
+        >
+          <ConnectionBanner connected={connected} />
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={portrait ? styles.stack : styles.columns}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Panel style={[styles.column, !portrait && styles.columnBeside]}>
+              <Text style={styles.you}>PLAYER</Text>
+              <Text
+                style={styles.heading}
+                numberOfLines={1}
+                maxFontSizeMultiplier={READING_FONT_SCALE}
+              >
                 {profile.name}
               </Text>
+              <View style={styles.stats}>
+                <Stat
+                  label="Games played"
+                  value={String(profile.gamesPlayed)}
+                />
+                <Stat label="Wins" value={String(profile.wins)} />
+                <Stat label="Win rate" value={`${winRate(profile)}%`} />
+              </View>
+              <View style={styles.buttons}>
+                <Button
+                  label="Settings"
+                  variant="secondary"
+                  onPress={() => setSettingsOpen(true)}
+                  testID="open-settings"
+                />
+                <Button
+                  label="Rules"
+                  variant="secondary"
+                  onPress={() => setRulesOpen(true)}
+                  testID="open-rules"
+                />
+              </View>
+              <CharacterStrip size={24} />
+            </Panel>
+            <Panel style={[styles.column, !portrait && styles.columnBeside]}>
               <Button
-                label="Change name"
-                variant="secondary"
-                onPress={startEditing}
+                label="Create Game"
+                disabled={disabled}
+                onPress={createGame}
               />
-            </>
-          )}
-          <View style={styles.stats}>
-            <Stat label="Games played" value={String(profile.gamesPlayed)} />
-            <Stat label="Wins" value={String(profile.wins)} />
-            <Stat label="Win rate" value={`${winRate(profile)}%`} />
-          </View>
-          <CharacterStrip size={24} />
-        </Panel>
-        <Panel style={styles.column}>
-          <Button
-            label="Create Game"
-            disabled={disabled}
-            onPress={createGame}
-          />
-          <Text style={styles.or}>or join with a code</Text>
-          <TextInput
-            style={styles.input}
-            value={code}
-            onChangeText={value => setCode(value.toUpperCase())}
-            maxLength={CODE_LENGTH}
-            onSubmitEditing={() => canJoin && joinGame(code)}
-            returnKeyType="go"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            placeholder="CODE"
-            placeholderTextColor={colors.muted}
-            accessibilityLabel="Join code"
-          />
-          <Button
-            label="Join"
-            variant="secondary"
-            disabled={!canJoin}
-            onPress={() => joinGame(code)}
-          />
-          {error && (
-            <Text style={styles.error} accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          )}
-        </Panel>
+              <Text style={styles.or}>or join with a code</Text>
+              <TextInput
+                style={styles.input}
+                value={code}
+                onChangeText={value => setCode(value.toUpperCase())}
+                maxLength={CODE_LENGTH}
+                onSubmitEditing={() => canJoin && joinGame(code)}
+                returnKeyType="go"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholder="CODE"
+                placeholderTextColor={colors.muted}
+                accessibilityLabel="Join code"
+              />
+              <Button
+                label="Join"
+                variant="secondary"
+                disabled={!canJoin}
+                onPress={() => joinGame(code)}
+              />
+              {error && (
+                <Text style={styles.error} accessibilityLiveRegion="polite">
+                  {error}
+                </Text>
+              )}
+            </Panel>
+          </ScrollView>
+        </View>
+        <SettingsSheet visible={settingsOpen} onClose={closeSettings} />
+        <RulesSheet visible={rulesOpen} onClose={closeRules} />
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  body: { flex: 1 },
+  // Landscape: two panels side by side. Portrait: the same panels stacked.
   columns: {
-    flex: 1,
+    flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
-  column: { flex: 1, alignItems: 'center', paddingVertical: spacing.lg },
+  stack: { flexGrow: 1, justifyContent: 'center', gap: spacing.md },
+  column: { alignItems: 'center', paddingVertical: spacing.lg },
+  columnBeside: { flex: 1 },
   you: { ...typography.micro, color: colors.primary },
   heading: {
     ...typography.title,
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  nameInput: {
-    width: 220,
-    minHeight: TOUCH_MIN,
-    color: colors.text,
-    backgroundColor: colors.surfaceRaised,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
-    textAlign: 'center',
-    fontSize: 18,
-  },
-  nameButtons: { flexDirection: 'row' },
   stats: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   stat: {
     minWidth: 76,
@@ -212,6 +185,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
     marginTop: 2,
   },
+  buttons: { flexDirection: 'row', marginBottom: spacing.md },
   or: {
     ...typography.caption,
     color: colors.muted,

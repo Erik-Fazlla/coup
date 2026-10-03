@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button } from './src/components/Button';
@@ -7,39 +7,54 @@ import { Panel } from './src/components/Panel';
 import { Screen } from './src/components/Screen';
 import { GameProvider, useGame } from './src/context/GameContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
+import { SettingsProvider } from './src/context/SettingsContext';
 import { isConfigured } from './src/firebase/config';
 import { GameOverScreen } from './src/screens/GameOverScreen';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { LobbyScreen } from './src/screens/LobbyScreen';
+import { RemovedScreen } from './src/screens/RemovedScreen';
+import { routeFor } from './src/screens/route';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { colors, spacing, typography } from './src/theme';
+import { watchReduceMotion } from './src/ui/motion';
 
 function GameRouter() {
-  const { ready, gameId, game, loaded, error, leave } = useGame();
+  const game = useGame();
+  const { playerId } = useProfile();
+  const { error, leave } = game;
 
-  if (!ready) {
-    return <Screen>{null}</Screen>;
-  }
-  if (!gameId) {
-    return <HomeScreen />;
-  }
-  if (!game) {
-    return (
-      <Fallback
-        message={loaded ? 'This game no longer exists.' : 'Loading game…'}
-        error={error}
-        onBack={leave}
-      />
-    );
-  }
-  switch (game.status) {
-    case 'waiting':
+  switch (routeFor(game, playerId)) {
+    case 'blank':
+      return <Screen>{null}</Screen>;
+    case 'home':
+      return <HomeScreen />;
+    case 'loading':
+      return <Fallback message="Loading game…" error={error} onBack={leave} />;
+    case 'missing':
+      return (
+        <Fallback
+          message="This game no longer exists."
+          error={error}
+          onBack={leave}
+        />
+      );
+    case 'lobby':
       return <LobbyScreen />;
-    case 'playing':
+    case 'removed':
+      return <RemovedScreen />;
+    case 'left':
+      return (
+        <Fallback
+          message="You are no longer in this game."
+          error={error}
+          onBack={leave}
+        />
+      );
+    case 'game':
       return <GameScreen />;
-    case 'finished':
+    case 'over':
       return <GameOverScreen />;
     default:
       return (
@@ -95,13 +110,20 @@ function ProfileRouter() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Animations ask for this each time they start, so it only has to be kept current.
+    watchReduceMotion();
+  }, []);
+
   return (
     <SafeAreaProvider>
       {isConfigured() ? (
         <ErrorBoundary>
-          <ProfileProvider>
-            <ProfileRouter />
-          </ProfileProvider>
+          <SettingsProvider>
+            <ProfileProvider>
+              <ProfileRouter />
+            </ProfileProvider>
+          </SettingsProvider>
         </ErrorBoundary>
       ) : (
         <SetupScreen />

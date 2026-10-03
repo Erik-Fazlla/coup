@@ -1,14 +1,29 @@
 import React from 'react';
-import { TextInput } from 'react-native';
-import { act, ReactTestRenderer } from 'react-test-renderer';
-import { render, rendered } from '../../components/testUtils';
+import { Dimensions, TextInput } from 'react-native';
+import { act } from 'react-test-renderer';
+import {
+  findButton,
+  press,
+  render,
+  rendered,
+  texts,
+} from '../../components/testUtils';
 import { HomeScreen } from '../HomeScreen';
 
 const mockSetName = jest.fn();
+const mockUpdate = jest.fn();
+const mockCreateGame = jest.fn();
+const mockJoinGame = jest.fn();
 const mockProfile = { name: 'Erik', gamesPlayed: 4, wins: 3, createdAt: 0 };
 
 jest.mock('../../context/ProfileContext', () => ({
   useProfile: () => ({ profile: mockProfile, setName: mockSetName }),
+}));
+jest.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { vibration: true, sound: true },
+    update: mockUpdate,
+  }),
 }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
@@ -18,108 +33,97 @@ jest.mock('../../context/GameContext', () => ({
     connected: true,
     busy: false,
     error: null,
-    createGame: jest.fn(),
-    joinGame: jest.fn(),
+    createGame: mockCreateGame,
+    joinGame: mockJoinGame,
   }),
 }));
 
-function hasButton(renderer: ReactTestRenderer, label: string): boolean {
-  return renderer.root.findAllByProps({ label }).length > 0;
-}
-
-function pressButton(renderer: ReactTestRenderer, label: string) {
-  const target = renderer.root.findAllByProps({ label })[0];
-  return act(async () => {
-    if (!target.props.disabled) {
-      await target.props.onPress();
-    }
-  });
-}
-
-function nameField(renderer: ReactTestRenderer) {
-  return renderer.root
-    .findAllByType(TextInput)
-    .find(input => input.props.accessibilityLabel === 'Player name');
-}
-
-function typeName(renderer: ReactTestRenderer, text: string) {
-  act(() => {
-    nameField(renderer)!.props.onChangeText(text);
-  });
-}
-
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSetName.mockResolvedValue(undefined);
 });
 
-describe('HomeScreen name', () => {
-  it('shows the name with a way to change it, and no name field until asked', () => {
-    const renderer = render(<HomeScreen />);
-    expect(rendered(renderer)).toContain('Erik');
-    expect(hasButton(renderer, 'Change name')).toBe(true);
-    expect(nameField(renderer)).toBeUndefined();
-  });
+afterEach(() => {
+  jest.restoreAllMocks();
+});
 
-  it('opens a field pre-filled with the current name', async () => {
+describe('HomeScreen', () => {
+  it('shows the player name and stats, with no name field of its own', () => {
     const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    expect(nameField(renderer)!.props.value).toBe('Erik');
-    expect(hasButton(renderer, 'Save')).toBe(true);
-    expect(hasButton(renderer, 'Cancel')).toBe(true);
-  });
-
-  it('saves the trimmed new name and closes the field', async () => {
-    const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    typeName(renderer, '  Maria  ');
-    await pressButton(renderer, 'Save');
-    expect(mockSetName).toHaveBeenCalledWith('Maria');
-    expect(nameField(renderer)).toBeUndefined();
-  });
-
-  it('does not allow an empty name', async () => {
-    const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    typeName(renderer, '   ');
+    expect(texts(renderer)).toContain('Erik');
+    expect(rendered(renderer)).toContain('Games played: 4');
+    expect(rendered(renderer)).toContain('Win rate: 75%');
+    expect(findButton(renderer, 'open-settings')).toBeDefined();
+    expect(findButton(renderer, 'open-rules')).toBeDefined();
+    expect(renderer.root.findAllByProps({ label: 'Change name' })).toHaveLength(
+      0,
+    );
     expect(
-      renderer.root.findAllByProps({ label: 'Save' })[0].props.disabled,
-    ).toBe(true);
-    await pressButton(renderer, 'Save');
-    expect(mockSetName).not.toHaveBeenCalled();
+      renderer.root
+        .findAllByType(TextInput)
+        .map(input => input.props.accessibilityLabel),
+    ).toEqual(['Join code']);
   });
 
-  it('closes without saving when the name was not changed', async () => {
+  it('opens Settings, where the name can be changed and vibration switched', () => {
     const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    await pressButton(renderer, 'Save');
-    expect(mockSetName).not.toHaveBeenCalled();
-    expect(nameField(renderer)).toBeUndefined();
+    expect(rendered(renderer)).not.toContain('settings-sheet');
+    press(renderer, 'open-settings');
+    expect(rendered(renderer)).toContain('settings-sheet');
+    expect(
+      renderer.root.findAllByProps({ label: 'Change name' }).length,
+    ).toBeGreaterThan(0);
+    expect(
+      renderer.root.findAllByProps({ testID: 'setting-vibration' }).length,
+    ).toBeGreaterThan(0);
+
+    act(() => {
+      renderer.root.findByProps({ label: 'Close' }).props.onPress();
+    });
+    expect(rendered(renderer)).not.toContain('settings-sheet');
   });
 
-  it('cancels without saving', async () => {
+  it('opens the rules', () => {
     const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    typeName(renderer, 'Maria');
-    await pressButton(renderer, 'Cancel');
-    expect(mockSetName).not.toHaveBeenCalled();
-    expect(nameField(renderer)).toBeUndefined();
-    expect(rendered(renderer)).toContain('Erik');
+    press(renderer, 'open-rules');
+    expect(rendered(renderer)).toContain('rules-sheet');
+    expect(texts(renderer)).toContain('Foreign Aid');
+    act(() => {
+      renderer.root.findByProps({ label: 'Close' }).props.onPress();
+    });
+    expect(rendered(renderer)).not.toContain('rules-sheet');
   });
 
-  it('keeps the field open and explains when saving fails', async () => {
-    mockSetName.mockRejectedValue(new Error('storage broken'));
+  it('creates a game, and joins one once the code is complete', () => {
     const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    typeName(renderer, 'Maria');
-    await pressButton(renderer, 'Save');
-    expect(nameField(renderer)!.props.value).toBe('Maria');
-    expect(rendered(renderer)).toContain('Could not save your name');
+    act(() => {
+      renderer.root.findByProps({ label: 'Create Game' }).props.onPress();
+    });
+    expect(mockCreateGame).toHaveBeenCalledTimes(1);
+
+    const join = () => renderer.root.findByProps({ label: 'Join' });
+    expect(join().props.disabled).toBe(true);
+    act(() => {
+      renderer.root.findByType(TextInput).props.onChangeText('mr93w');
+    });
+    expect(join().props.disabled).toBe(false);
+    act(() => {
+      join().props.onPress();
+    });
+    expect(mockJoinGame).toHaveBeenCalledWith('MR93W');
   });
 
-  it('limits the name to 16 characters', async () => {
-    const renderer = render(<HomeScreen />);
-    await pressButton(renderer, 'Change name');
-    expect(nameField(renderer)!.props.maxLength).toBe(16);
+  it('puts the two panels side by side in landscape and stacks them in portrait', () => {
+    const direction = (width: number, height: number) => {
+      jest
+        .spyOn(Dimensions, 'get')
+        .mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+      const content = render(<HomeScreen />).root.find(
+        node =>
+          typeof node.type !== 'string' && !!node.props.contentContainerStyle,
+      ).props.contentContainerStyle;
+      return content.flexDirection ?? 'column';
+    };
+    expect(direction(640, 360)).toBe('row');
+    expect(direction(360, 640)).toBe('column');
   });
 });

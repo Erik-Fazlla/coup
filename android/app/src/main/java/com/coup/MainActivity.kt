@@ -1,11 +1,19 @@
 package com.coup
 
+import android.os.Bundle
+import android.view.WindowManager
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
+
+  /** Keeps the screen on while the app is open: a locked phone cannot buzz when it is your turn. */
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+  }
 
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule

@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { getServices } from '../firebase';
-import { colors, spacing } from '../theme';
+import { colors, spacing, typography } from '../theme';
 import { Button } from './Button';
+import { Panel } from './Panel';
 
 interface State {
   error: Error | null;
@@ -39,9 +40,11 @@ export class ErrorBoundary extends React.Component<
     }
     return (
       <View style={styles.screen}>
-        <Text style={styles.title}>Something went wrong</Text>
-        <Text style={styles.message}>{error.message}</Text>
-        <Button label="Back to Home" onPress={this.backToHome} />
+        <Panel style={styles.panel}>
+          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.message}>{error.message}</Text>
+          <Button label="Back to Home" onPress={this.backToHome} />
+        </Panel>
       </View>
     );
   }
@@ -55,15 +58,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing.lg,
   },
+  panel: {
+    alignItems: 'center',
+    padding: spacing.lg,
+    maxWidth: 440,
+    borderColor: colors.danger,
+  },
   title: {
+    ...typography.title,
     color: colors.text,
     fontSize: 22,
-    fontWeight: '700',
     marginBottom: spacing.sm,
   },
   message: {
+    ...typography.caption,
     color: colors.muted,
-    fontSize: 13,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },

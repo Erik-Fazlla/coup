@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
+import { CharacterStrip } from '../components/CharacterStrip';
+import { Panel } from '../components/Panel';
 import { Screen } from '../components/Screen';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
-import { colors, spacing } from '../theme';
+import { colors, spacing, typography } from '../theme';
 
 export function GameOverScreen() {
   const { game, gameId, leave } = useGame();
@@ -23,32 +25,56 @@ export function GameOverScreen() {
     return null;
   }
 
+  const youWon = winner === playerId;
   const title = !winner
     ? 'Game over'
-    : winner === playerId
+    : youWon
     ? 'You win!'
     : `${game.players[winner]?.name ?? 'Someone'} wins`;
 
   return (
     <Screen>
-      <View style={styles.center}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.meta}>
-          Game over after {game.state.turnNumber} turns
-        </Text>
-        <Button label="Back to Home" onPress={leave} />
+      <View style={styles.centre}>
+        <Panel style={[styles.panel, youWon && styles.panelWon]}>
+          <CharacterStrip size={26} />
+          <Text
+            style={[styles.title, youWon && styles.titleWon]}
+            numberOfLines={2}
+          >
+            {title}
+          </Text>
+          <Text style={styles.meta}>
+            Game over after {game.state.turnNumber} turns
+          </Text>
+          <Button label="Back to Home" onPress={leave} />
+        </Panel>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: {
-    color: colors.primary,
-    fontSize: 34,
-    fontWeight: '800',
-    marginBottom: spacing.sm,
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  panel: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    minWidth: 320,
+    maxWidth: 520,
   },
-  meta: { color: colors.muted, fontSize: 14, marginBottom: spacing.lg },
+  panelWon: { borderColor: colors.primary },
+  title: {
+    ...typography.title,
+    color: colors.text,
+    fontSize: 34,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  titleWon: { color: colors.primary },
+  meta: {
+    ...typography.body,
+    color: colors.muted,
+    marginBottom: spacing.lg,
+  },
 });

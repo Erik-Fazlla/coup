@@ -18,6 +18,7 @@ import {
   Game,
   GameAction,
   IllegalActionError,
+  Reveal,
 } from './types';
 
 const MAX_LOG = 30;
@@ -44,7 +45,13 @@ function hiddenIndexes(g: Game, playerId: string): number[] {
     .filter(i => i >= 0);
 }
 
-function reveal(g: Game, playerId: string, cardIndex: number): void {
+/** Turns one of the player's hidden cards face up. `by` is the player whose action or challenge took it. */
+function loseCard(
+  g: Game,
+  playerId: string,
+  cardIndex: number,
+  by: string | null,
+): void {
   const player = g.players[playerId];
   const influence = player.influence[cardIndex];
   if (!influence || influence.revealed) {
@@ -54,6 +61,7 @@ function reveal(g: Game, playerId: string, cardIndex: number): void {
   log(g, `${player.name} loses ${influence.card}`);
   if (unrevealedCount(player) === 0) {
     player.eliminatedAt = g.state.turnNumber;
+    g.eliminations.push({ playerId, by, turn: g.state.turnNumber });
     log(g, `${player.name} is eliminated`);
   }
 }
@@ -104,7 +112,13 @@ function resolveAction(g: Game, rng: Rng): void {
       return endTurn(g);
     }
     case 'assassinate':
-      return requireLoseInfluence(g, pending.target!, 'endTurn', rng);
+      return requireLoseInfluence(
+        g,
+        pending.target!,
+        'endTurn',
+        rng,
+        pending.actor,
+      );
     case 'exchange': {
       const drawn = g.deck.splice(0, 2);
       const hand = actor.influence.filter(i => !i.revealed).map(i => i.card);
@@ -164,19 +178,24 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
   }
 }
 
-/** Makes a player lose one influence, asking them to choose when they still hold two. */
+/**
+ * Makes a player lose one influence, asking them to choose when they still hold two.
+ * `by` is the player responsible. It only matters when the card is the player's last one, and that
+ * is never a choice, so it does not have to be remembered while a choice is pending.
+ */
 function requireLoseInfluence(
   g: Game,
   playerId: string,
   next: Continuation,
   rng: Rng,
+  by: string,
 ): void {
   const hidden = hiddenIndexes(g, playerId);
   if (hidden.length === 0) {
     return runContinuation(g, next, rng);
   }
   if (hidden.length === 1) {
-    reveal(g, playerId, hidden[0]);
+    loseCard(g, playerId, hidden[0], by);
     return runContinuation(g, next, rng);
   }
   g.state.pending!.loseInfluence = { playerId, next };
@@ -227,7 +246,7 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
 
   if (type === 'coup') {
     log(g, `${actor.name} coups ${nameOf(g, target!)}`);
-    return requireLoseInfluence(g, target!, 'endTurn', rng);
+    return requireLoseInfluence(g, target!, 'endTurn', rng, playerId);
   }
 
   const onTarget = target ? ` on ${nameOf(g, target)}` : '';
@@ -291,6 +310,12 @@ function swapProvenCard(
   g.deck = deck;
 }
 
+/** Publishes how a challenge turned out, under an id that is never reused within this game id. */
+function recordReveal(g: Game, outcome: Omit<Reveal, 'id'>): void {
+  g.revealSeq += 1;
+  g.reveal = { id: g.revealSeq, ...outcome };
+}
+
 function challenge(g: Game, challengerId: string, rng: Rng): void {
   const options = responseOptions(g, challengerId);
   if (!options || !options.canChallenge) {
@@ -303,6 +328,13 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
     const blockClaim = pending.block!;
     const blocker = nameOf(g, blockClaim.blocker);
     const index = hiddenCardIndex(g, blockClaim.blocker, blockClaim.claim);
+    recordReveal(g, {
+      challenger: challengerId,
+      claimant: blockClaim.blocker,
+      card: blockClaim.claim,
+      truthful: index >= 0,
+      block: true,
+    });
     if (index >= 0) {
       log(
         g,
@@ -310,26 +342,51 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
       );
       swapProvenCard(g, blockClaim.blocker, index, rng);
       g.state.lastAction!.blocked = true;
-      return requireLoseInfluence(g, challengerId, 'endTurn', rng);
+      return requireLoseInfluence(
+        g,
+        challengerId,
+        'endTurn',
+        rng,
+        blockClaim.blocker,
+      );
     }
     log(g, `${challenger} challenges ${blocker}, who was bluffing`);
     pending.block = null;
     pending.responses[blockClaim.blocker] = 'pass';
-    return requireLoseInfluence(g, blockClaim.blocker, 'afterFailedBlock', rng);
+    return requireLoseInfluence(
+      g,
+      blockClaim.blocker,
+      'afterFailedBlock',
+      rng,
+      challengerId,
+    );
   }
 
   const claim = pending.claim!;
   const actor = nameOf(g, pending.actor);
   const index = hiddenCardIndex(g, pending.actor, claim);
+  recordReveal(g, {
+    challenger: challengerId,
+    claimant: pending.actor,
+    card: claim,
+    truthful: index >= 0,
+    block: false,
+  });
   if (index >= 0) {
     log(g, `${challenger} challenges ${actor}, who shows ${claim}`);
     swapProvenCard(g, pending.actor, index, rng);
-    return requireLoseInfluence(g, challengerId, 'afterFailedChallenge', rng);
+    return requireLoseInfluence(
+      g,
+      challengerId,
+      'afterFailedChallenge',
+      rng,
+      pending.actor,
+    );
   }
   log(g, `${challenger} challenges ${actor}, who was bluffing`);
   // The action never happened, so anything paid for it is returned.
   g.players[pending.actor].coins += ACTION_COST[pending.action];
-  requireLoseInfluence(g, pending.actor, 'endTurn', rng);
+  requireLoseInfluence(g, pending.actor, 'endTurn', rng, challengerId);
 }
 
 function exchangeChoose(
@@ -410,7 +467,8 @@ export function applyAction(game: Game, action: GameAction, rng: Rng): Game {
       ) {
         fail('You do not need to lose a card');
       }
-      reveal(g, id, action.cardIndex);
+      // A choice is only offered with two hidden cards, so this is never an elimination.
+      loseCard(g, id, action.cardIndex, null);
       g.state.pending!.loseInfluence = null;
       runContinuation(g, waiting.next, rng);
       break;

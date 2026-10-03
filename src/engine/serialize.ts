@@ -80,5 +80,21 @@ export function normalizeGame(raw: any): Game {
     createdAt: raw.createdAt ?? 0,
     round: raw.round ?? 1,
     scores: { ...(raw.scores ?? {}) },
+    eliminations: toArray<any>(raw.eliminations).map(entry => ({
+      playerId: entry.playerId,
+      by: entry.by ?? null,
+      turn: entry.turn ?? 0,
+    })),
+    reveal: raw.reveal
+      ? {
+          id: raw.reveal.id,
+          challenger: raw.reveal.challenger,
+          claimant: raw.reveal.claimant,
+          card: raw.reveal.card,
+          truthful: !!raw.reveal.truthful,
+          block: !!raw.reveal.block,
+        }
+      : null,
+    revealSeq: raw.revealSeq ?? 0,
   };
 }

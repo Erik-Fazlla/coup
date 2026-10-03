@@ -119,9 +119,58 @@ describe('normalizeGame', () => {
     const raw = firebaseLike(three()) as Record<string, unknown>;
     delete raw.round;
     delete raw.scores;
+    delete raw.revealSeq;
     const game = normalizeGame(raw);
     expect(game.round).toBe(1);
     expect(game.scores).toEqual({});
+    expect(game.eliminations).toEqual([]);
+    expect(game.reveal).toBeNull();
+    expect(game.revealSeq).toBe(0);
+  });
+
+  it('round-trips a reveal whose flags are both false', () => {
+    const game = play(
+      three(),
+      { type: 'exchange', playerId: 'a' },
+      { type: 'challenge', playerId: 'b' },
+    );
+    expect(game.reveal).toMatchObject({ truthful: false, block: false });
+    expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
+  it('round-trips a reveal whose flags are both true', () => {
+    const game = play(
+      three(),
+      { type: 'foreignAid', playerId: 'a' },
+      { type: 'block', playerId: 'c', claim: 'Duke' },
+      { type: 'challenge', playerId: 'b' },
+    );
+    expect(game.reveal).toMatchObject({ truthful: true, block: true });
+    expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
+  it('round-trips eliminations, including one nobody caused', () => {
+    const start = makeGame(
+      { a: ['Duke', 'Captain'], b: ['Contessa'], c: ['Assassin', 'Duke'] },
+      { coins: { a: 7 } },
+    );
+    const game = play(start, { type: 'coup', playerId: 'a', target: 'b' });
+    expect(game.eliminations).toEqual([{ playerId: 'b', by: 'a', turn: 1 }]);
+    expect(normalizeGame(firebaseLike(game))).toEqual(game);
+
+    const uncaused = {
+      ...game,
+      eliminations: [{ playerId: 'b', by: null, turn: 1 }],
+    };
+    expect(normalizeGame(firebaseLike(uncaused))).toEqual(uncaused);
+  });
+
+  it('accepts eliminations that Firebase returned as a keyed object', () => {
+    const raw = firebaseLike(three()) as Record<string, unknown>;
+    raw.eliminations = { 0: { playerId: 'b', by: 'a', turn: 4 } };
+    expect(normalizeGame(raw).eliminations).toEqual([
+      { playerId: 'b', by: 'a', turn: 4 },
+    ]);
   });
 
   it('throws a typed error when the game does not exist', () => {

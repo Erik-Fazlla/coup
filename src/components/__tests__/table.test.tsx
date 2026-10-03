@@ -1,6 +1,7 @@
 import React from 'react';
 import { act } from 'react-test-renderer';
 import { Card, Player } from '../../engine/types';
+import { colors } from '../../theme';
 import { EventBanner } from '../EventBanner';
 import { ExchangePicker } from '../ExchangePicker';
 import { LogSheet, LOG_SHEET_ENTRIES } from '../LogSheet';
@@ -234,6 +235,49 @@ describe('EventBanner', () => {
     });
     expect(texts(renderer)).toContain('A claims Duke: Tax');
     expect(texts(renderer)).not.toContain('A takes Income');
+  });
+
+  /** The lines the banner draws, top to bottom, without the LOG tag. */
+  const lines = (renderer: ReturnType<typeof render>) =>
+    renderer.root
+      .findAll(
+        node => (node.type as unknown) === 'Text' && !!node.props.numberOfLines,
+      )
+      .map(node => node.props);
+  const squeeze = (renderer: ReturnType<typeof render>, height: number) =>
+    act(() => {
+      button(renderer, 'event-banner').props.onLayout({
+        nativeEvent: { layout: { height } },
+      });
+    });
+
+  it('still shows an error when it is squeezed to one line', () => {
+    const renderer = render(<EventBanner {...props} error="Too late" />);
+    squeeze(renderer, BANNER_MIN_HEIGHT);
+    expect(lines(renderer).map(line => line.children)).toEqual(['Too late']);
+  });
+
+  it('puts an error first, in the danger colour, and announces it', () => {
+    const renderer = render(<EventBanner {...props} error="Too late" />);
+    squeeze(renderer, 98);
+    const [first, second] = lines(renderer);
+    expect(first.children).toBe('Too late');
+    expect(first.accessibilityLiveRegion).toBe('polite');
+    expect(JSON.stringify(first.style)).toContain(colors.danger);
+    // What is asked of the player is still there underneath when there is room.
+    expect(second.children).toBe('A claims Duke: Tax');
+    expect(JSON.stringify(second.style)).not.toContain(colors.danger);
+    expect(button(renderer, 'event-banner').props.accessibilityLabel).toBe(
+      'Too late. A claims Duke: Tax. Open the game log',
+    );
+  });
+
+  it('draws nothing in the danger colour without an error', () => {
+    const renderer = render(<EventBanner {...props} />);
+    lines(renderer).forEach(line => {
+      expect(JSON.stringify(line.style)).not.toContain(colors.danger);
+      expect(line.accessibilityLiveRegion).toBeUndefined();
+    });
   });
 });
 

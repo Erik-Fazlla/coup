@@ -1,8 +1,9 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button } from './src/components/Button';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { Panel } from './src/components/Panel';
 import { Screen } from './src/components/Screen';
 import { GameProvider, useGame } from './src/context/GameContext';
 import { ProfileProvider, useProfile } from './src/context/ProfileContext';
@@ -13,7 +14,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { LobbyScreen } from './src/screens/LobbyScreen';
 import { SetupScreen } from './src/screens/SetupScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
-import { colors, spacing } from './src/theme';
+import { colors, spacing, typography } from './src/theme';
 
 function GameRouter() {
   const { ready, gameId, game, loaded, error, leave } = useGame();
@@ -62,13 +63,17 @@ function Fallback({
 }) {
   return (
     <Screen>
-      <Text style={styles.message}>{message}</Text>
-      {error && (
-        <Text style={styles.error} accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      )}
-      <Button label="Back to Home" variant="secondary" onPress={onBack} />
+      <View style={styles.centre}>
+        <Panel style={styles.panel}>
+          <Text style={styles.message}>{message}</Text>
+          {error && (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
+          <Button label="Back to Home" variant="secondary" onPress={onBack} />
+        </Panel>
+      </View>
     </Screen>
   );
 }
@@ -106,6 +111,18 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  message: { color: colors.text, fontSize: 16, marginBottom: spacing.md },
-  error: { color: colors.danger, fontSize: 13, marginBottom: spacing.md },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  panel: { alignItems: 'center', padding: spacing.lg, maxWidth: 440 },
+  message: {
+    ...typography.heading,
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  error: {
+    ...typography.caption,
+    color: colors.danger,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
 });

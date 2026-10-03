@@ -2,11 +2,12 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../components/Button';
 import { ConnectionBanner } from '../components/ConnectionBanner';
+import { Panel } from '../components/Panel';
 import { Screen } from '../components/Screen';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
 import { MAX_PLAYERS, MIN_PLAYERS } from '../engine/lobby';
-import { colors, spacing } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 export function LobbyScreen() {
   const { game, connected, busy, error, startGame, leave } = useGame();
@@ -24,9 +25,9 @@ export function LobbyScreen() {
     <Screen>
       <ConnectionBanner connected={connected} />
       <View style={styles.columns}>
-        <View style={styles.column}>
-          <Text style={styles.label}>Join code</Text>
-          <Text style={styles.code} selectable>
+        <Panel style={styles.column}>
+          <Text style={styles.label}>JOIN CODE</Text>
+          <Text style={styles.code} selectable maxFontSizeMultiplier={1.15}>
             {game.code}
           </Text>
           {isHost ? (
@@ -36,7 +37,7 @@ export function LobbyScreen() {
               onPress={startGame}
             />
           ) : (
-            <Text style={styles.label}>Waiting for the host to start…</Text>
+            <Text style={styles.waiting}>Waiting for the host to start…</Text>
           )}
           <Button
             label={isHost ? 'Cancel Game' : 'Leave'}
@@ -48,35 +49,77 @@ export function LobbyScreen() {
               {error}
             </Text>
           )}
-        </View>
-        <View style={styles.column}>
+        </Panel>
+        <Panel style={styles.column}>
           <Text style={styles.label}>
-            Players {count}/{MAX_PLAYERS}
+            PLAYERS {count}/{MAX_PLAYERS}
           </Text>
-          {game.playerOrder.map(id => (
-            <Text key={id} style={styles.player}>
-              {game.players[id].name}
-              {id === game.host ? ' (host)' : ''}
-              {id === playerId ? ' (you)' : ''}
-            </Text>
-          ))}
-        </View>
+          <View style={styles.players}>
+            {game.playerOrder.map(id => {
+              const isYou = id === playerId;
+              return (
+                <View
+                  key={id}
+                  style={[styles.player, isYou && styles.playerYou]}
+                >
+                  <Text
+                    style={styles.playerName}
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={1.15}
+                  >
+                    {game.players[id].name}
+                    {id === game.host ? ' (host)' : ''}
+                    {isYou ? ' (you)' : ''}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </Panel>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  columns: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  columns: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
   column: { flex: 1, alignItems: 'center' },
-  label: { color: colors.muted, fontSize: 13, marginBottom: spacing.xs },
+  label: { ...typography.micro, color: colors.muted, marginBottom: spacing.xs },
   code: {
-    color: colors.primary,
-    fontSize: 48,
+    color: colors.coin,
+    fontSize: 44,
     fontWeight: '800',
     letterSpacing: 8,
-    marginBottom: spacing.md,
+    // letterSpacing also pads the last letter; pull the code back to centre.
+    marginRight: -8,
+    marginBottom: spacing.sm,
   },
-  player: { color: colors.text, fontSize: 16, marginBottom: spacing.xs },
-  error: { color: colors.danger, fontSize: 13, marginTop: spacing.sm },
+  waiting: {
+    ...typography.caption,
+    color: colors.muted,
+    marginVertical: spacing.sm,
+  },
+  players: { alignSelf: 'stretch', gap: spacing.xs },
+  player: {
+    minHeight: 30,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceRaised,
+  },
+  playerYou: { borderColor: colors.primary },
+  playerName: { ...typography.body, color: colors.text },
+  error: {
+    ...typography.caption,
+    color: colors.danger,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
 });

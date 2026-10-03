@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { colors, spacing } from '../theme';
+import { colors, radius, spacing, typography } from '../theme';
 
 export function ConnectionBanner({ connected }: { connected: boolean }) {
   if (connected) {
@@ -15,12 +15,15 @@ export function ConnectionBanner({ connected }: { connected: boolean }) {
 
 const styles = StyleSheet.create({
   banner: {
-    color: colors.onLight,
-    backgroundColor: colors.danger,
+    ...typography.caption,
+    color: colors.danger,
+    backgroundColor: colors.dangerFill,
+    fontWeight: '700',
     textAlign: 'center',
-    fontSize: 12,
-    padding: spacing.xs,
-    borderRadius: 4,
-    marginBottom: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
 });

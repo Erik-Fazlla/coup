@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
+import { CharacterStrip } from '../components/CharacterStrip';
+import { Panel } from '../components/Panel';
 import { Screen } from '../components/Screen';
 import { useProfile } from '../context/ProfileContext';
 import { MAX_NAME_LENGTH } from '../engine/lobby';
-import { colors, spacing } from '../theme';
+import { colors, radius, spacing, TOUCH_MIN, typography } from '../theme';
 
 export function WelcomeScreen() {
   const { setName, startupError } = useProfile();
@@ -31,56 +33,75 @@ export function WelcomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.center}>
-        <Text style={styles.title}>COUP</Text>
-        {error && (
-          <Text style={styles.error} accessibilityLiveRegion="polite">
-            {error}
-          </Text>
-        )}
-        <Text style={styles.label}>Choose your player name</Text>
-        <TextInput
-          style={styles.input}
-          value={text}
-          onChangeText={setText}
-          onSubmitEditing={submit}
-          returnKeyType="done"
-          maxLength={MAX_NAME_LENGTH}
-          placeholder="Name"
-          placeholderTextColor={colors.muted}
-          autoCorrect={false}
-          accessibilityLabel="Player name"
-        />
-        <Button label="Continue" disabled={!canContinue} onPress={submit} />
+      <View style={styles.columns}>
+        <View style={styles.brand}>
+          <Text style={styles.title}>COUP</Text>
+          <CharacterStrip size={30} />
+        </View>
+        <Panel style={styles.form}>
+          {error && (
+            <Text style={styles.error} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
+          <Text style={styles.label}>Choose your player name</Text>
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            onSubmitEditing={submit}
+            returnKeyType="done"
+            maxLength={MAX_NAME_LENGTH}
+            placeholder="Name"
+            placeholderTextColor={colors.muted}
+            autoCorrect={false}
+            accessibilityLabel="Player name"
+          />
+          <Button label="Continue" disabled={!canContinue} onPress={submit} />
+        </Panel>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title: {
-    color: colors.primary,
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: 6,
-    marginBottom: spacing.lg,
+  columns: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xl,
   },
+  brand: { alignItems: 'center' },
+  title: {
+    ...typography.display,
+    color: colors.text,
+    marginBottom: spacing.md,
+    // letterSpacing also pads the last letter; pull the word back to centre.
+    marginRight: -typography.display.letterSpacing,
+  },
+  form: { alignItems: 'center', padding: spacing.lg },
   error: {
+    ...typography.caption,
     color: colors.danger,
-    fontSize: 13,
     marginBottom: spacing.md,
     textAlign: 'center',
+    maxWidth: 260,
   },
-  label: { color: colors.text, fontSize: 14, marginBottom: spacing.sm },
+  label: {
+    ...typography.body,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
   input: {
     width: 260,
-    minHeight: 44,
+    minHeight: TOUCH_MIN,
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 6,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
     fontSize: 16,

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Card } from '../engine/types';
+import { characterColors } from '../theme';
 
 interface Props {
   card: Card;
@@ -197,6 +198,31 @@ export function CharacterGlyph({ card, size, color, cutout }: Props) {
       importantForAccessibility="no-hide-descendants"
     >
       <Shape size={size} color={color} cutout={cutout} />
+    </View>
+  );
+}
+
+/** The emblem on a disc of the character's colour. Decorative. */
+export function CharacterBadge({ card, size }: { card: Card; size: number }) {
+  const palette = characterColors[card];
+  return (
+    <View
+      style={[
+        styles.box,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: palette.fill,
+        },
+      ]}
+    >
+      <CharacterGlyph
+        card={card}
+        size={size * 0.6}
+        color={palette.accent}
+        cutout={palette.fill}
+      />
     </View>
   );
 }

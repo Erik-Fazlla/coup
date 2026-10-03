@@ -1,5 +1,53 @@
-import { pendingResponders } from './rules';
-import { ActionType, Game, Pending } from './types';
+import {
+  ACTION_COST,
+  availableActions,
+  FORCED_COUP_COINS,
+  pendingResponders,
+} from './rules';
+import { ActionType, Card, Game, Pending } from './types';
+
+/** What each character does, for card faces and the rules reference. Text only: colours live in the theme. */
+export const CHARACTER_INFO: Record<
+  Card,
+  { ability: string; blocks: string | null }
+> = {
+  Duke: { ability: 'Tax +3 · blocks Foreign Aid', blocks: 'Foreign Aid' },
+  Assassin: { ability: 'Pay 3: target loses a card', blocks: null },
+  Captain: { ability: 'Steal 2 · blocks Steal', blocks: 'Steal' },
+  Ambassador: { ability: 'Exchange cards · blocks Steal', blocks: 'Steal' },
+  Contessa: { ability: 'Blocks Assassination', blocks: 'Assassination' },
+};
+
+/** Two-letter code for places too small for the full name. */
+export const CHARACTER_CODE: Record<Card, string> = {
+  Duke: 'Du',
+  Assassin: 'As',
+  Captain: 'Ca',
+  Ambassador: 'Am',
+  Contessa: 'Co',
+};
+
+/** Shortest form of what an action costs or gives, for an action tile. */
+export const ACTION_EFFECT: Record<ActionType, string> = {
+  income: '+1',
+  foreignAid: '+2',
+  coup: `Pay ${ACTION_COST.coup}`,
+  tax: '+3',
+  assassinate: `Pay ${ACTION_COST.assassinate}`,
+  steal: 'Take 2',
+  exchange: 'Swap',
+};
+
+/** Spoken form of what an action costs and does, for screen readers. */
+export const ACTION_DETAIL: Record<ActionType, string> = {
+  income: 'take 1 coin',
+  foreignAid: 'take 2 coins',
+  coup: `costs ${ACTION_COST.coup} coins, a player loses a card`,
+  tax: 'take 3 coins',
+  assassinate: `costs ${ACTION_COST.assassinate} coins, a player loses a card`,
+  steal: 'take 2 coins from a player',
+  exchange: 'swap cards with the deck',
+};
 
 export const ACTION_LABEL: Record<ActionType, string> = {
   income: 'Income',
@@ -78,4 +126,62 @@ export function promptLine(game: Game): string {
   return pending.claim
     ? `${actor} claims ${pending.claim}: ${actionText(game, pending)}`
     : `${actor} uses ${actionText(game, pending)}`;
+}
+
+/** Why the player cannot declare this action right now, or null when they can. */
+export function unavailableReason(
+  game: Game,
+  playerId: string,
+  action: ActionType,
+): string | null {
+  if (availableActions(game, playerId).includes(action)) {
+    return null;
+  }
+  const { phase, currentTurnPlayer } = game.state;
+  const player = game.players[playerId];
+  if (
+    !player ||
+    game.status !== 'playing' ||
+    phase !== 'action' ||
+    currentTurnPlayer !== playerId
+  ) {
+    return 'not your turn';
+  }
+  if (player.coins >= FORCED_COUP_COINS) {
+    return `you must Coup with ${FORCED_COUP_COINS} or more coins`;
+  }
+  return `needs ${ACTION_COST[action]} coins`;
+}
+
+/**
+ * The line one player sees in the centre of the table: what they must do now,
+ * or (when nothing is asked of them) what the table is waiting for.
+ */
+export function viewerLine(
+  game: Game,
+  playerId: string,
+): { text: string; yours: boolean } {
+  const { phase, pending } = game.state;
+  if (pendingResponders(game).includes(playerId)) {
+    return { text: promptLine(game), yours: true };
+  }
+  if (
+    phase === 'loseInfluence' &&
+    pending?.loseInfluence?.playerId === playerId
+  ) {
+    return { text: 'Choose a card to lose', yours: true };
+  }
+  if (phase === 'exchange' && pending?.actor === playerId) {
+    return { text: 'Choose the cards to keep', yours: true };
+  }
+  if (availableActions(game, playerId).length > 0) {
+    const mustCoup = game.players[playerId].coins >= FORCED_COUP_COINS;
+    return {
+      text: mustCoup
+        ? `You have ${FORCED_COUP_COINS} or more coins: you must Coup`
+        : 'Your turn: choose an action',
+      yours: true,
+    };
+  }
+  return { text: statusLine(game), yours: false };
 }

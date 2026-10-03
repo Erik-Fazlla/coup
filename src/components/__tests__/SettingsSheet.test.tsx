@@ -1,6 +1,7 @@
 import React from 'react';
 import { BackHandler, Switch, TextInput } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
+import { playSound } from '../../ui/sound';
 import { SettingsSheet } from '../SettingsSheet';
 import { render, rendered } from '../testUtils';
 
@@ -15,6 +16,7 @@ jest.mock('../../context/ProfileContext', () => ({
 jest.mock('../../context/SettingsContext', () => ({
   useSettings: () => ({ settings: mockSettings, update: mockUpdate }),
 }));
+jest.mock('../../ui/sound', () => ({ playSound: jest.fn() }));
 
 const open = (onClose = jest.fn()) =>
   render(<SettingsSheet visible onClose={onClose} />);
@@ -78,12 +80,12 @@ describe('SettingsSheet', () => {
   });
 });
 
-describe('SettingsSheet vibration', () => {
-  const vibration = (renderer: ReactTestRenderer) =>
-    renderer.root
-      .findAllByType(Switch)
-      .find(node => node.props.testID === 'setting-vibration')!;
+const vibration = (renderer: ReactTestRenderer) =>
+  renderer.root
+    .findAllByType(Switch)
+    .find(node => node.props.testID === 'setting-vibration')!;
 
+describe('SettingsSheet vibration', () => {
   it('shows the current setting with a label a screen reader can read', () => {
     const renderer = open();
     expect(vibration(renderer).props.value).toBe(true);
@@ -104,10 +106,60 @@ describe('SettingsSheet vibration', () => {
     expect(mockUpdate).toHaveBeenCalledWith({ vibration: false });
   });
 
-  it('has no sound switch yet', () => {
+  it('plays no sound when vibration is switched', () => {
     const renderer = open();
-    expect(renderer.root.findAllByType(Switch)).toHaveLength(1);
-    expect(rendered(renderer)).not.toContain('Sound');
+    act(() => {
+      vibration(renderer).props.onValueChange(false);
+      vibration(renderer).props.onValueChange(true);
+    });
+    expect(playSound).not.toHaveBeenCalled();
+  });
+});
+
+describe('SettingsSheet sound', () => {
+  const sound = (renderer: ReactTestRenderer) =>
+    renderer.root
+      .findAllByType(Switch)
+      .find(node => node.props.testID === 'setting-sound')!;
+
+  it('has one switch for vibration and one for sound', () => {
+    const renderer = open();
+    expect(renderer.root.findAllByType(Switch)).toHaveLength(2);
+    expect(rendered(renderer)).toContain('Play sound effects during the game');
+  });
+
+  it('shows the current setting with a label a screen reader can read', () => {
+    const renderer = open();
+    expect(sound(renderer).props.value).toBe(true);
+    expect(sound(renderer).props.accessibilityLabel).toBe('Sound');
+  });
+
+  it('shows it off when it is off', () => {
+    mockSettings = { vibration: true, sound: false };
+    const renderer = open();
+    expect(sound(renderer).props.value).toBe(false);
+    expect(vibration(renderer).props.value).toBe(true);
+  });
+
+  it('saves switching off through the settings context, touching nothing else, in silence', () => {
+    const renderer = open();
+    act(() => {
+      sound(renderer).props.onValueChange(false);
+    });
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith({ sound: false });
+    expect(playSound).not.toHaveBeenCalled();
+  });
+
+  it('plays the coin once as a preview when switched on', () => {
+    mockSettings = { vibration: true, sound: false };
+    const renderer = open();
+    act(() => {
+      sound(renderer).props.onValueChange(true);
+    });
+    expect(mockUpdate).toHaveBeenCalledWith({ sound: true });
+    expect(playSound).toHaveBeenCalledTimes(1);
+    expect(playSound).toHaveBeenCalledWith('coin');
   });
 });
 

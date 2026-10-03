@@ -141,6 +141,10 @@ npm run android
 
 Full base-game rules are implemented: Income, Foreign Aid, Coup, Duke (Tax, blocks Foreign Aid), Assassin, Captain (Steal, blocks Steal), Ambassador (Exchange, blocks Steal), Contessa (blocks Assassination), challenges on actions and blocks, forced Coup at 10 coins.
 
+## Sounds
+
+The sound effects (your turn, a prompt to respond, coins, a lost card, a challenge, win, lose) are not downloaded: `npm run sounds` makes them from code (`scripts/generate-sounds.js`) and writes them as small WAV files to `android/app/src/main/res/raw/`, which are committed; running it again gives identical files. They follow the phone's media volume and stay quiet when the phone is on silent or vibrate. To turn them off in the app: **Home → Settings → Sound**.
+
 ## Known limits
 
 - No turn timer: if a player stops responding, the game waits for them. Reopening the app returns them to the game.

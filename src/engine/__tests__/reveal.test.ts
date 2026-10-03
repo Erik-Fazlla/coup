@@ -138,9 +138,10 @@ describe('challenge reveal record', () => {
 
     const second = startGame(lobby, 'a', identityRng);
     expect(second.reveal).toBeNull();
-    // Unshuffled deal: a holds Duke, Duke.
+    // Unshuffled deal: a holds Duke, Duke. Round 2 starts with b, who takes Income first.
     const challenged = play(
       second,
+      { type: 'income', playerId: 'b' },
       { type: 'tax', playerId: 'a' },
       { type: 'challenge', playerId: 'b' },
     );

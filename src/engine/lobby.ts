@@ -157,7 +157,9 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
   next.status = 'playing';
   next.state = {
     phase: 'action',
-    currentTurnPlayer: next.playerOrder[0],
+    // The first turn moves one seat along each round (the host in round 1), wrapping round the table.
+    currentTurnPlayer:
+      next.playerOrder[(next.round - 1) % next.playerOrder.length],
     turnNumber: 1,
     pending: null,
     lastAction: null,

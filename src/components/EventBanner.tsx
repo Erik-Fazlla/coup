@@ -21,7 +21,7 @@ interface Props {
   primary: string;
   /** The latest log entry, if any. */
   secondary: string | null;
-  /** A problem with the player's last tap; shown instead of the log entry. */
+  /** A problem with the player's last tap; shown first, with `primary` under it in place of the log entry. */
   error: string | null;
   /** True when `primary` asks something of the local player. */
   yours: boolean;
@@ -41,17 +41,20 @@ export function EventBanner({
   onPress,
 }: Props) {
   const [height, setHeight] = useState<number | null>(null);
-  const second = error ?? secondary;
+  // An error takes the first line, the only one a short banner draws: on a small landscape
+  // phone "Too late" would otherwise never be seen. What is asked moves down a line.
+  const first = error ?? primary;
+  const second = error ? primary : secondary;
   const showSecond = !!second && (height === null || height >= TWO_LINES_FROM);
   const wrap = height !== null && height >= WRAP_FROM;
   // A new line slides in, so the eye is drawn to what just changed.
-  const primaryEnter = useEnter(primary);
+  const primaryEnter = useEnter(first);
   const secondEnter = useEnter(second ?? null);
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={[primary, second, 'Open the game log']
+      accessibilityLabel={[first, second, 'Open the game log']
         .filter(Boolean)
         .join('. ')}
       accessibilityLiveRegion="polite"
@@ -67,15 +70,21 @@ export function EventBanner({
       <View style={[styles.marker, yours && styles.markerYours]} />
       <View style={styles.lines}>
         <Animated.Text
-          style={[styles.primary, yours && styles.primaryYours, primaryEnter]}
+          style={[
+            styles.primary,
+            yours && styles.primaryYours,
+            !!error && styles.error,
+            primaryEnter,
+          ]}
           numberOfLines={wrap ? 2 : 1}
+          accessibilityLiveRegion={error ? 'polite' : undefined}
           maxFontSizeMultiplier={READING_FONT_SCALE}
         >
-          {primary}
+          {first}
         </Animated.Text>
         {showSecond && (
           <Animated.Text
-            style={[styles.secondary, !!error && styles.error, secondEnter]}
+            style={[styles.secondary, secondEnter]}
             numberOfLines={1}
             maxFontSizeMultiplier={READING_FONT_SCALE}
           >

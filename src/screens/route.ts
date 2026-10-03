@@ -8,7 +8,7 @@ export type Route =
   /** The game id no longer leads anywhere. */
   | 'missing'
   | 'lobby'
-  /** The host removed this player from the lobby. */
+  /** The host removed this player from the lobby; shown for as long as they stay on this game. */
   | 'removed'
   /** This player is not in the lobby and was not removed (they left on another device, say). */
   | 'left'
@@ -25,8 +25,8 @@ interface RouteInput {
 }
 
 /**
- * Which screen to show. The one decision that is not a plain switch: a lobby
- * the local player is not in.
+ * Which screen to show. The decisions that are not a plain switch: a game the
+ * local player is not in, and a game that vanishes while they are leaving it.
  *
  * A player is only told "the host removed you" when the game says so
  * (`kicked`). Merely being absent is not enough: when a player leaves, the
@@ -44,15 +44,20 @@ export function routeFor(input: RouteInput, playerId: string): Route {
     return 'home';
   }
   if (!game) {
-    return loaded ? 'missing' : 'loading';
+    if (!loaded) {
+      return 'loading';
+    }
+    // A host cancelling the lobby deletes it a moment before this device forgets the game.
+    return busy ? 'blank' : 'missing';
+  }
+  // Whatever the game goes on to do: a removed player keeps the screen that says so and lets them leave.
+  if (game.kicked[playerId]) {
+    return 'removed';
   }
   switch (game.status) {
     case 'waiting':
       if (game.players[playerId]) {
         return 'lobby';
-      }
-      if (game.kicked[playerId]) {
-        return 'removed';
       }
       return busy ? 'blank' : 'left';
     case 'playing':

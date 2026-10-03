@@ -77,12 +77,7 @@ function endTurn(g: Game): void {
     log(g, `${nameOf(g, living[0])} wins`);
     return;
   }
-  const order = g.playerOrder;
-  let index = order.indexOf(g.state.currentTurnPlayer);
-  do {
-    index = (index + 1) % order.length;
-  } while (!isAlive(g, order[index]));
-  g.state.currentTurnPlayer = order[index];
+  g.state.currentTurnPlayer = nextLivingPlayer(g, g.state.currentTurnPlayer);
   g.state.turnNumber += 1;
   g.state.phase = 'action';
 }
@@ -424,6 +419,90 @@ function exchangeChoose(
   endTurn(g);
 }
 
+/** The waiting player gives up the card they chose, and whatever that was holding up carries on. */
+function chooseLoss(
+  g: Game,
+  playerId: string,
+  cardIndex: number,
+  rng: Rng,
+): void {
+  const waiting = g.state.pending?.loseInfluence;
+  if (
+    g.state.phase !== 'loseInfluence' ||
+    !waiting ||
+    waiting.playerId !== playerId
+  ) {
+    fail('You do not need to lose a card');
+  }
+  // A choice is only offered with two hidden cards, so this is never an elimination.
+  loseCard(g, playerId, cardIndex, null);
+  g.state.pending!.loseInfluence = null;
+  runContinuation(g, waiting.next, rng);
+}
+
+/** The living player after `playerId` in turn order. */
+function nextLivingPlayer(g: Game, playerId: string): string {
+  const order = g.playerOrder;
+  let index = order.indexOf(playerId);
+  do {
+    index = (index + 1) % order.length;
+  } while (!isAlive(g, order[index]));
+  return order[index];
+}
+
+/**
+ * The host moves the game past whoever it is waiting on, by making the least eventful legal move
+ * for them. Each branch goes through the same handler as the real action, so every rule applies.
+ */
+function skip(g: Game, hostId: string, rng: Rng): void {
+  if (hostId !== g.host) {
+    fail('Only the host can skip');
+  }
+  const { phase, pending, currentTurnPlayer } = g.state;
+  const logSkipped = (ids: string[]) =>
+    log(g, `Host skipped ${ids.map(id => nameOf(g, id)).join(', ')}`);
+
+  switch (phase) {
+    case 'awaitingResponses':
+    case 'awaitingBlockResponses': {
+      // Nothing resolves until the last of them has passed, so each pass here is a legal one.
+      const waiting = pendingResponders(g);
+      logSkipped(waiting);
+      waiting.forEach(id => pass(g, id, rng));
+      return;
+    }
+    case 'action': {
+      logSkipped([currentTurnPlayer]);
+      const mustCoup = g.players[currentTurnPlayer].coins >= FORCED_COUP_COINS;
+      return declare(
+        g,
+        mustCoup
+          ? {
+              type: 'coup',
+              playerId: currentTurnPlayer,
+              target: nextLivingPlayer(g, currentTurnPlayer),
+            }
+          : { type: 'income', playerId: currentTurnPlayer },
+        rng,
+      );
+    }
+    case 'loseInfluence': {
+      const loser = pending!.loseInfluence!.playerId;
+      logSkipped([loser]);
+      return chooseLoss(g, loser, hiddenIndexes(g, loser)[0], rng);
+    }
+    case 'exchange': {
+      const actor = pending!.actor;
+      logSkipped([actor]);
+      // The options list starts with the cards the player already holds.
+      const keep = hiddenIndexes(g, actor).map((_, n) => n);
+      return exchangeChoose(g, actor, keep, rng);
+    }
+    default:
+      fail('There is nothing to skip');
+  }
+}
+
 /**
  * Applies one player action and returns the new game. Never mutates `game`.
  * Throws IllegalActionError when the action is not allowed in the current state.
@@ -458,21 +537,12 @@ export function applyAction(game: Game, action: GameAction, rng: Rng): Game {
     case 'steal':
       declare(g, action, rng);
       break;
-    case 'loseInfluence': {
-      const waiting = g.state.pending?.loseInfluence;
-      if (
-        g.state.phase !== 'loseInfluence' ||
-        !waiting ||
-        waiting.playerId !== id
-      ) {
-        fail('You do not need to lose a card');
-      }
-      // A choice is only offered with two hidden cards, so this is never an elimination.
-      loseCard(g, id, action.cardIndex, null);
-      g.state.pending!.loseInfluence = null;
-      runContinuation(g, waiting.next, rng);
+    case 'loseInfluence':
+      chooseLoss(g, id, action.cardIndex, rng);
       break;
-    }
+    case 'skip':
+      skip(g, id, rng);
+      break;
     case 'pass':
       pass(g, id, rng);
       break;

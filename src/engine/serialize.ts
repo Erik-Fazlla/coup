@@ -96,5 +96,6 @@ export function normalizeGame(raw: any): Game {
         }
       : null,
     revealSeq: raw.revealSeq ?? 0,
+    kicked: { ...(raw.kicked ?? {}) },
   };
 }

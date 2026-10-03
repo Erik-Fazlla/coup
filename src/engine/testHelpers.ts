@@ -54,6 +54,7 @@ export function makeGame(
     eliminations: [],
     reveal: null,
     revealSeq: 0,
+    kicked: {},
   };
 }
 

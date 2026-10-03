@@ -119,6 +119,8 @@ export interface Game {
   reveal: Reveal | null;
   /** Id of the last reveal ever made in this game id. Survives rematches so ids never repeat. */
   revealSeq: number;
+  /** Players the host removed from the lobby; they cannot join this game again. */
+  kicked: Record<string, true>;
 }
 
 export type GameAction =

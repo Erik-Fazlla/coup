@@ -12,6 +12,7 @@ import { Rng } from '../engine/deck';
 import {
   addPlayer,
   generateCode,
+  kickPlayer as kickFromLobby,
   newGame,
   rematch as rematchLobby,
   removePlayer,
@@ -112,6 +113,15 @@ export function createGameService(
     return mutate(gameId, game => rematchLobby(game, playerId, rng));
   }
 
+  /** The host removes a player from the lobby; that player cannot rejoin. */
+  function kickPlayer(
+    gameId: string,
+    hostId: string,
+    targetId: string,
+  ): Promise<void> {
+    return mutate(gameId, game => kickFromLobby(game, hostId, targetId));
+  }
+
   function leaveLobby(gameId: string, playerId: string): Promise<void> {
     return mutate(gameId, game => removePlayer(game, playerId));
   }
@@ -163,6 +173,7 @@ export function createGameService(
     joinGame,
     startGame,
     rematch,
+    kickPlayer,
     leaveLobby,
     cancelLobby,
     dispatch,

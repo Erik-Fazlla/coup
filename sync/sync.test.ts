@@ -214,6 +214,222 @@ describe('multiplayer sync', () => {
   });
 });
 
+/** Creates a lobby with all three clients in it and returns its id and code. */
+async function threePlayerLobby(): Promise<{ id: string; lobbyCode: string }> {
+  const id = await host.service.createGame('h', 'Host');
+  const lobbyCode = (await seen(host.service, id, () => true)).code;
+  await second.service.joinGame(lobbyCode, 'p2', 'Second');
+  await third.service.joinGame(lobbyCode, 'p3', 'Third');
+  await Promise.all(
+    everyone.map(c => seen(c.service, id, g => g.playerOrder.length === 3)),
+  );
+  return { id, lobbyCode };
+}
+
+/** Changes whenever the game starts waiting for something else. */
+function waitKey(game: Game): string {
+  const { phase, turnNumber, claimSeq, pending } = game.state;
+  return JSON.stringify([
+    game.status,
+    phase,
+    turnNumber,
+    claimSeq,
+    pending?.loseInfluence?.playerId ?? null,
+  ]);
+}
+
+describe('host skip', () => {
+  let skipId = '';
+
+  it('advances a waiting game for every client', async () => {
+    skipId = (await threePlayerLobby()).id;
+    await host.service.startGame(skipId, 'h');
+    await host.service.dispatch(skipId, { type: 'income', playerId: 'h' });
+    await seen(host.service, skipId, g => g.state.currentTurnPlayer === 'p2');
+
+    // The table is waiting for Second; the host moves it on.
+    await host.service.dispatch(skipId, { type: 'skip', playerId: 'h' });
+    const games = await Promise.all(
+      everyone.map(c =>
+        seen(c.service, skipId, g => g.state.currentTurnPlayer === 'p3'),
+      ),
+    );
+    games.forEach(game => {
+      expect(game.players.p2.coins).toBe(3);
+      expect(game.state.turnNumber).toBe(3);
+      expect(game.log).toContain('Host skipped Second');
+    });
+  });
+
+  it('passes for everyone who has not answered a claim', async () => {
+    await third.service.dispatch(skipId, { type: 'tax', playerId: 'p3' });
+    await seen(
+      host.service,
+      skipId,
+      g => g.state.phase === 'awaitingResponses',
+    );
+    await host.service.dispatch(skipId, { type: 'skip', playerId: 'h' });
+    const games = await Promise.all(
+      everyone.map(c =>
+        seen(c.service, skipId, g => g.state.currentTurnPlayer === 'h'),
+      ),
+    );
+    games.forEach(game => {
+      expect(game.players.p3.coins).toBe(5);
+      expect(game.log).toContain('Host skipped Host, Second');
+    });
+  });
+
+  it('rejects a skip from a player who is not the host', async () => {
+    const before = await seen(host.service, skipId, () => true);
+    await expect(
+      second.service.dispatch(skipId, { type: 'skip', playerId: 'p2' }),
+    ).rejects.toThrow('Only the host can skip');
+    const after = await seen(host.service, skipId, () => true);
+    expect(after).toEqual(before);
+  });
+});
+
+describe('kicking a player', () => {
+  it('removes them for every client and refuses their rejoin by code', async () => {
+    const { id, lobbyCode } = await threePlayerLobby();
+
+    await expect(third.service.kickPlayer(id, 'p3', 'p2')).rejects.toThrow(
+      'Only the host can remove players',
+    );
+
+    await host.service.kickPlayer(id, 'h', 'p2');
+    // The kicked player's own subscription shows them gone.
+    const lobbies = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.playerOrder.length === 2)),
+    );
+    lobbies.forEach(lobby => {
+      expect(lobby.playerOrder).toEqual(['h', 'p3']);
+      expect(lobby.players.p2).toBeUndefined();
+      expect(lobby.kicked).toEqual({ p2: true });
+      expect(lobby.status).toBe('waiting');
+    });
+
+    await expect(
+      second.service.joinGame(lobbyCode, 'p2', 'Second'),
+    ).rejects.toThrow('The host removed you from this game');
+    await expect(
+      second.service.joinGame(lobbyCode, 'p2', 'Other name'),
+    ).rejects.toThrow('The host removed you from this game');
+    const still = await seen(host.service, id, () => true);
+    expect(still.playerOrder).toEqual(['h', 'p3']);
+
+    // The game goes on without them.
+    await host.service.startGame(id, 'h');
+    const started = await seen(third.service, id, g => g.status === 'playing');
+    expect(started.playerOrder).toEqual(['h', 'p3']);
+    expect(started.kicked).toEqual({ p2: true });
+  });
+});
+
+describe('rematch', () => {
+  it('returns every client to the lobby in round 2 with the scores kept', async () => {
+    const { id, lobbyCode } = await threePlayerLobby();
+    await host.service.startGame(id, 'h');
+    let game = await seen(host.service, id, g => g.status === 'playing');
+    expect(game.round).toBe(1);
+
+    // Play the round out with host skips: only Income and forced Coups happen, so it always ends.
+    for (let step = 0; game.status === 'playing'; step++) {
+      expect(step).toBeLessThan(400);
+      const key = waitKey(game);
+      await host.service.dispatch(id, { type: 'skip', playerId: 'h' });
+      game = await seen(host.service, id, g => waitKey(g) !== key);
+    }
+
+    const finished = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.status === 'finished')),
+    );
+    const winner = finished[0].winner!;
+    finished.forEach(end => {
+      expect(end.winner).toBe(winner);
+      expect(end.scores).toEqual({ [winner]: 1 });
+      expect(end.eliminations).toHaveLength(2);
+      end.eliminations.forEach(entry => expect(entry.by).not.toBeNull());
+      expect(end.round).toBe(1);
+    });
+
+    await expect(second.service.rematch(id, 'p2')).rejects.toThrow(
+      'Only the host can start a new round',
+    );
+
+    await host.service.rematch(id, 'h');
+    const lobbies = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.status === 'waiting')),
+    );
+    lobbies.forEach(lobby => {
+      expect(lobby.round).toBe(2);
+      expect(lobby.scores).toEqual({ [winner]: 1 });
+      expect(lobby.code).toBe(lobbyCode);
+      expect(lobby.playerOrder).toEqual(['h', 'p2', 'p3']);
+      expect(lobby.winner).toBeNull();
+      expect(lobby.eliminations).toEqual([]);
+      expect(lobby.reveal).toBeNull();
+      expect(lobby.log).toEqual([]);
+      expect(lobby.deck).toEqual([]);
+      expect(lobby.state.claimSeq).toBe(finished[0].state.claimSeq);
+      ['h', 'p2', 'p3'].forEach(playerId =>
+        expect(lobby.players[playerId]).toMatchObject({
+          coins: 2,
+          influence: [],
+          eliminatedAt: null,
+        }),
+      );
+    });
+
+    await expect(host.service.rematch(id, 'h')).rejects.toThrow(
+      'The game is not finished',
+    );
+
+    // The same lobby starts a second round for everyone.
+    await host.service.startGame(id, 'h');
+    const second2 = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.status === 'playing')),
+    );
+    second2.forEach(next => {
+      expect(next.round).toBe(2);
+      expect(next.scores).toEqual({ [winner]: 1 });
+      expect(next.deck).toHaveLength(9);
+      expect(next.players.p3.influence).toHaveLength(2);
+    });
+  }, 60000);
+
+  it('publishes a challenge reveal to every client', async () => {
+    const { id } = await threePlayerLobby();
+    await host.service.startGame(id, 'h');
+    await host.service.dispatch(id, { type: 'tax', playerId: 'h' });
+    const asked = await seen(
+      second.service,
+      id,
+      g => g.state.phase === 'awaitingResponses',
+    );
+    await second.service.dispatch(id, {
+      type: 'challenge',
+      playerId: 'p2',
+      seq: asked.state.claimSeq,
+    });
+    const games = await Promise.all(
+      everyone.map(c => seen(c.service, id, g => g.reveal !== null)),
+    );
+    const heldDuke = asked.players.h.influence.some(i => i.card === 'Duke');
+    games.forEach(game =>
+      expect(game.reveal).toEqual({
+        id: 1,
+        challenger: 'p2',
+        claimant: 'h',
+        card: 'Duke',
+        truthful: heldDuke,
+        block: false,
+      }),
+    );
+  });
+});
+
 describe('security rules', () => {
   it('blocks writes outside the known paths', async () => {
     await expect(set(ref(host.db, 'anything/else'), 1)).rejects.toThrow();

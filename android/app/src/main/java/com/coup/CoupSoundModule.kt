@@ -27,6 +27,11 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
 
   private val lock = Any()
   private var pool: SoundPool? = null
+  /**
+   * Set once React Native has torn the module down. A `play` that is still on its way from
+   * JavaScript must not build a new pool then: nothing would ever release it.
+   */
+  @Volatile private var invalidated = false
   /** Sound name -> SoundPool id, for every sound that has been handed to the pool. */
   private val soundIds = HashMap<String, Int>()
   /** SoundPool ids that have finished loading and can be played. */
@@ -47,10 +52,10 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
   @ReactMethod
   fun play(name: String) {
     try {
-      if (!ringerIsOn()) {
+      if (invalidated || !ringerIsOn()) {
         return
       }
-      val current = ensurePool()
+      val current = ensurePool() ?: return
       val id = synchronized(lock) { soundIds[name] } ?: return
       if (!ready.contains(id)) {
         // Still loading (only possible in the first moments): skip rather than play late.
@@ -64,6 +69,8 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
 
   override fun invalidate() {
     synchronized(lock) {
+      // Under the same lock as `ensurePool`, so a pool cannot be created after this point.
+      invalidated = true
       try {
         pool?.release()
       } catch (error: Throwable) {
@@ -83,9 +90,15 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
     return audio.ringerMode == AudioManager.RINGER_MODE_NORMAL
   }
 
-  /** The pool with every sound handed to it; created on first use. */
-  private fun ensurePool(): SoundPool {
+  /**
+   * The pool with every sound handed to it; created on first use. Null once the module has been
+   * invalidated: no pool is created after that.
+   */
+  private fun ensurePool(): SoundPool? {
     synchronized(lock) {
+      if (invalidated) {
+        return null
+      }
       val existing = pool
       if (existing != null) {
         return existing

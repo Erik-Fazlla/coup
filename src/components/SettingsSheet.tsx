@@ -12,6 +12,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { playSound } from '../ui/sound';
 import { Button } from './Button';
 import { Sheet } from './Sheet';
 
@@ -23,13 +24,18 @@ interface Toggle {
 
 /**
  * The on/off switches, one row each. To add a setting that already exists in
- * `Settings` (Sound is next), add a line here; nothing else needs to change.
+ * `Settings`, add a line here; nothing else needs to change.
  */
 const TOGGLES: Toggle[] = [
   {
     key: 'vibration',
     label: 'Vibration',
     hint: 'Buzz when it is your turn or you must respond',
+  },
+  {
+    key: 'sound',
+    label: 'Sound',
+    hint: 'Play sound effects during the game',
   },
 ];
 
@@ -56,6 +62,13 @@ export function SettingsSheet({ visible, onClose }: Props) {
 
 function ToggleRows() {
   const { settings, update } = useSettings();
+  const change = (key: keyof Settings, value: boolean) => {
+    update({ [key]: value });
+    if (key === 'sound' && value) {
+      // A preview, so the player hears what they have just switched on.
+      playSound('coin');
+    }
+  };
   return (
     <>
       {TOGGLES.map(toggle => (
@@ -79,7 +92,7 @@ function ToggleRows() {
             accessibilityLabel={toggle.label}
             accessibilityHint={toggle.hint}
             value={settings[toggle.key]}
-            onValueChange={value => update({ [toggle.key]: value })}
+            onValueChange={value => change(toggle.key, value)}
             trackColor={{ false: colors.secondary, true: colors.primaryFill }}
             thumbColor={settings[toggle.key] ? colors.primary : colors.muted}
             style={styles.switch}

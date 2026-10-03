@@ -7,6 +7,7 @@ import { ResponseBar } from '../../components/ResponseBar';
 import { Seat } from '../../components/Seat';
 import { TopBar } from '../../components/TopBar';
 import { REVEAL_MS } from '../../ui/reveal';
+import { playSound } from '../../ui/sound';
 import { SKIP_AFTER_MS } from '../../ui/stalled';
 import { BUZZ_PATTERN } from '../../ui/turnBuzz';
 import {
@@ -27,6 +28,7 @@ const mockAct = jest.fn();
 const mockLeave = jest.fn();
 const mockSkip = jest.fn();
 let mockVibration = true;
+let mockSound = true;
 let mockGameValue: {
   game: Game | null;
   connected: boolean;
@@ -46,10 +48,11 @@ jest.mock('../../context/ProfileContext', () => ({
 }));
 jest.mock('../../context/SettingsContext', () => ({
   useSettings: () => ({
-    settings: { vibration: mockVibration, sound: true },
+    settings: { vibration: mockVibration, sound: mockSound },
     update: jest.fn(),
   }),
 }));
+jest.mock('../../ui/sound', () => ({ playSound: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -118,6 +121,7 @@ let vibrate: jest.SpyInstance;
 beforeEach(() => {
   jest.clearAllMocks();
   mockVibration = true;
+  mockSound = true;
   vibrate = jest.spyOn(Vibration, 'vibrate').mockImplementation(() => {});
 });
 
@@ -514,6 +518,46 @@ describe('GameScreen turn buzz', () => {
   it('does not buzz someone who is only watching', () => {
     mount(makeGame({ a: ['Duke', 'Captain'], b: ['Contessa', 'Assassin'] }));
     expect(vibrate).not.toHaveBeenCalled();
+  });
+});
+
+describe('GameScreen sounds', () => {
+  const played = () => (playSound as jest.Mock).mock.calls.map(call => call[0]);
+
+  it('is silent when the game is opened, even on my turn', () => {
+    mount(myTurn());
+    expect(played()).toEqual([]);
+  });
+
+  it('plays what a new snapshot brings: coins for anyone, then my turn', () => {
+    const renderer = mount(theirTurn());
+    const next = play(theirTurn(), { type: 'income', playerId: 'other' });
+    deliver(renderer, next);
+    expect(played()).toEqual(['coin', 'turn']);
+    // The same snapshot again adds nothing.
+    deliver(renderer, next);
+    expect(played()).toEqual(['coin', 'turn']);
+  });
+
+  it('plays the prompt when I am asked to respond', () => {
+    const renderer = mount(theirTurn());
+    deliver(renderer, play(theirTurn(), { type: 'tax', playerId: 'other' }));
+    expect(played()).toEqual(['prompt']);
+  });
+
+  it('stays silent when sound is switched off in settings', () => {
+    mockSound = false;
+    const renderer = mount(theirTurn());
+    deliver(renderer, play(theirTurn(), { type: 'income', playerId: 'other' }));
+    expect(played()).toEqual([]);
+  });
+
+  it('plays nothing for someone who is only watching', () => {
+    const watched = () =>
+      makeGame({ a: ['Duke', 'Captain'], b: ['Contessa', 'Assassin'] });
+    const renderer = mount(watched());
+    deliver(renderer, play(watched(), { type: 'income', playerId: 'a' }));
+    expect(played()).toEqual([]);
   });
 });
 

@@ -10,6 +10,7 @@ import { useProfile } from '../context/ProfileContext';
 import { eliminationLines } from '../engine/describe';
 import { colors, READING_FONT_SCALE, spacing, typography } from '../theme';
 import { useIsPortrait } from '../ui/orientation';
+import { useGameSounds } from '../ui/soundCues';
 
 export function GameOverScreen() {
   const { game, gameId, connected, busy, error, leave, rematch } = useGame();
@@ -18,6 +19,9 @@ export function GameOverScreen() {
   const winner = game?.winner ?? null;
   const played = !!game?.players[playerId];
   const round = game?.round ?? 1;
+
+  // The game screen closes as this one opens; the win or lose sound is played from here.
+  useGameSounds(played ? game : null, playerId);
 
   useEffect(() => {
     if (gameId && winner && played) {

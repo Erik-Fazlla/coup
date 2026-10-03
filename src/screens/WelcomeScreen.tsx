@@ -70,6 +70,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    // A wrapping row stacks its lines from the top unless told otherwise;
+    // this is what keeps the block in the vertical centre of the screen.
+    alignContent: 'center',
     justifyContent: 'center',
     gap: spacing.xl,
   },

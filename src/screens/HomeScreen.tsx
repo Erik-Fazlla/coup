@@ -7,6 +7,7 @@ import { Panel } from '../components/Panel';
 import { Screen } from '../components/Screen';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
+import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { winRate } from '../profile/profileStore';
 import { colors, radius, spacing, TOUCH_MIN, typography } from '../theme';
 
@@ -26,15 +27,48 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 export function HomeScreen() {
-  const { profile } = useProfile();
+  const { profile, setName } = useProfile();
   const { connected, busy, error, createGame, joinGame } = useGame();
   const [code, setCode] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const disabled = !connected || busy;
   const canJoin = !disabled && code.trim().length === CODE_LENGTH;
+  const newName = draft.trim();
+  const canSave = newName.length > 0 && !savingName;
 
   if (!profile) {
     return null;
   }
+
+  const startEditing = () => {
+    setDraft(profile.name);
+    setNameError(null);
+    setEditing(true);
+  };
+
+  // Stats stay with the profile; the new name applies to games joined from now on.
+  const saveName = async () => {
+    if (!canSave) {
+      return;
+    }
+    if (newName === profile.name) {
+      setEditing(false);
+      return;
+    }
+    setSavingName(true);
+    setNameError(null);
+    try {
+      await setName(newName);
+      setEditing(false);
+    } catch {
+      setNameError('Could not save your name on this device. Try again.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   return (
     <Screen>
@@ -42,9 +76,47 @@ export function HomeScreen() {
       <View style={styles.columns}>
         <Panel style={styles.column}>
           <Text style={styles.you}>PLAYER</Text>
-          <Text style={styles.heading} numberOfLines={1}>
-            {profile.name}
-          </Text>
+          {editing ? (
+            <>
+              <TextInput
+                style={styles.nameInput}
+                value={draft}
+                onChangeText={setDraft}
+                onSubmitEditing={saveName}
+                returnKeyType="done"
+                maxLength={MAX_NAME_LENGTH}
+                autoFocus
+                autoCorrect={false}
+                placeholder="Name"
+                placeholderTextColor={colors.muted}
+                accessibilityLabel="Player name"
+              />
+              <View style={styles.nameButtons}>
+                <Button label="Save" disabled={!canSave} onPress={saveName} />
+                <Button
+                  label="Cancel"
+                  variant="secondary"
+                  onPress={() => setEditing(false)}
+                />
+              </View>
+              {nameError && (
+                <Text style={styles.error} accessibilityLiveRegion="polite">
+                  {nameError}
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.heading} numberOfLines={1}>
+                {profile.name}
+              </Text>
+              <Button
+                label="Change name"
+                variant="secondary"
+                onPress={startEditing}
+              />
+            </>
+          )}
           <View style={styles.stats}>
             <Stat label="Games played" value={String(profile.gamesPlayed)} />
             <Stat label="Wins" value={String(profile.wins)} />
@@ -101,9 +173,28 @@ const styles = StyleSheet.create({
   heading: {
     ...typography.title,
     color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  nameInput: {
+    width: 220,
+    minHeight: TOUCH_MIN,
+    color: colors.text,
+    backgroundColor: colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+    fontSize: 18,
+  },
+  nameButtons: { flexDirection: 'row' },
+  stats: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
     marginBottom: spacing.md,
   },
-  stats: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   stat: {
     minWidth: 76,
     alignItems: 'center',

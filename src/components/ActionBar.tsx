@@ -39,12 +39,19 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
         <Text style={styles.prompt}>
           {ACTION_LABEL[targeting]}: choose a target
         </Text>
+        {/* Its own key: without it React reuses the action row's ScrollView, which keeps
+            its scroll offset and leaves these few buttons out of view. */}
         <ScrollView
+          key="targets"
           horizontal
           keyboardShouldPersistTaps="handled"
-          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.row}
         >
+          <Button
+            label="Back"
+            variant="secondary"
+            onPress={() => setTargeting(null)}
+          />
           {opponents.map(id => (
             <Button
               key={id}
@@ -56,11 +63,6 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
               }}
             />
           ))}
-          <Button
-            label="Cancel"
-            variant="secondary"
-            onPress={() => setTargeting(null)}
-          />
         </ScrollView>
       </View>
     );
@@ -74,9 +76,9 @@ export function ActionBar({ game, playerId, disabled, onAction }: Props) {
           : 'Your turn: choose an action'}
       </Text>
       <ScrollView
+        key="actions"
         horizontal
         keyboardShouldPersistTaps="handled"
-        showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
       >
         {actions.map(action => (

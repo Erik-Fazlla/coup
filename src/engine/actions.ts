@@ -65,6 +65,7 @@ function endTurn(g: Game): void {
     g.status = 'finished';
     g.state.phase = 'finished';
     g.winner = living[0];
+    g.scores[living[0]] = (g.scores[living[0]] ?? 0) + 1;
     log(g, `${nameOf(g, living[0])} wins`);
     return;
   }

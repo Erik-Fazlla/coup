@@ -13,13 +13,14 @@ export function GameOverScreen() {
   const { playerId, recordResult } = useProfile();
   const winner = game?.winner ?? null;
   const played = !!game?.players[playerId];
+  const round = game?.round ?? 1;
 
   useEffect(() => {
     if (gameId && winner && played) {
       // A failed stats write must not surface as an unhandled rejection on the result screen.
-      recordResult(gameId, winner === playerId).catch(() => {});
+      recordResult(`${gameId}:${round}`, winner === playerId).catch(() => {});
     }
-  }, [gameId, winner, played, playerId, recordResult]);
+  }, [gameId, round, winner, played, playerId, recordResult]);
 
   if (!game) {
     return null;

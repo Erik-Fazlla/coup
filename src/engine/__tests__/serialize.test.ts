@@ -1,6 +1,6 @@
-import { newGame } from '../lobby';
+import { newGame, rematch } from '../lobby';
 import { normalizeGame } from '../serialize';
-import { makeGame, play } from '../testHelpers';
+import { identityRng, makeGame, play } from '../testHelpers';
 import { IllegalActionError } from '../types';
 
 /** Mimics what Realtime Database does to a value: nulls, empty arrays and empty objects vanish. */
@@ -87,6 +87,41 @@ describe('normalizeGame', () => {
     );
     const game = play(start, { type: 'coup', playerId: 'a', target: 'b' });
     expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
+  it('round-trips the round number and the lobby scores', () => {
+    const start = makeGame(
+      { a: ['Duke', 'Captain'], b: ['Contessa'] },
+      { coins: { a: 7 } },
+    );
+    const game = play(
+      { ...start, round: 3, scores: { b: 2 } },
+      { type: 'coup', playerId: 'a', target: 'b' },
+    );
+    expect(game.scores).toEqual({ a: 1, b: 2 });
+    expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
+  it('round-trips the lobby a rematch returns to', () => {
+    const start = makeGame(
+      { a: ['Duke', 'Captain'], b: ['Contessa'] },
+      { coins: { a: 7 } },
+    );
+    const lobby = rematch(
+      play(start, { type: 'coup', playerId: 'a', target: 'b' }),
+      'a',
+      identityRng,
+    );
+    expect(normalizeGame(firebaseLike(lobby))).toEqual(lobby);
+  });
+
+  it('defaults a game stored before rounds existed to round 1 with no scores', () => {
+    const raw = firebaseLike(three()) as Record<string, unknown>;
+    delete raw.round;
+    delete raw.scores;
+    const game = normalizeGame(raw);
+    expect(game.round).toBe(1);
+    expect(game.scores).toEqual({});
   });
 
   it('throws a typed error when the game does not exist', () => {

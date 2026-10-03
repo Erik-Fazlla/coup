@@ -59,6 +59,7 @@ import {
 import { usePulse } from '../ui/motion';
 import { isOnline, knownPresence } from '../ui/presence';
 import { useRevealOnce } from '../ui/reveal';
+import { useGameSounds } from '../ui/soundCues';
 import { useStalled, waitKey } from '../ui/stalled';
 import { useTurnBuzz } from '../ui/turnBuzz';
 
@@ -101,6 +102,8 @@ export function GameScreen() {
 
   // The phone buzzes once when it becomes this player's moment, if they want it to.
   useTurnBuzz(playing ? game : null, playerId, settings.vibration);
+  // Sound effects for what each new snapshot brings, if they want those.
+  useGameSounds(playing ? game : null, playerId);
   const { reveal, dismiss: dismissReveal } = useRevealOnce(game);
   // Only the host's own clock matters: nobody else is offered the skip.
   const stalled = useStalled(isHost && playing ? waitKey(game) : null);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ReactTestRenderer } from 'react-test-renderer';
+import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
   findButton,
   isEnabled,
@@ -10,12 +10,15 @@ import {
 } from '../../components/testUtils';
 import { makeGame } from '../../engine/testHelpers';
 import { Card, Game } from '../../engine/types';
+import { playSound } from '../../ui/sound';
+import { useGameSounds } from '../../ui/soundCues';
 import { GameOverScreen } from '../GameOverScreen';
 
 const mockLeave = jest.fn();
 const mockRematch = jest.fn();
 const mockRecordResult = jest.fn();
 let mockPlayerId = 'a';
+let mockSound = true;
 let mockGameValue: {
   game: Game | null;
   gameId: string | null;
@@ -35,6 +38,13 @@ jest.mock('../../context/ProfileContext', () => ({
     recordResult: mockRecordResult,
   }),
 }));
+jest.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { vibration: true, sound: mockSound },
+    update: jest.fn(),
+  }),
+}));
+jest.mock('../../ui/sound', () => ({ playSound: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -66,10 +76,8 @@ function finished(): Game {
   };
 }
 
-function mount(
-  as: string,
-  overrides: Partial<typeof mockGameValue> = {},
-): ReactTestRenderer {
+/** What the contexts hand the screen: the finished game, seen by player `as`. */
+function show(as: string, overrides: Partial<typeof mockGameValue> = {}) {
   mockPlayerId = as;
   mockGameValue = {
     game: finished(),
@@ -81,12 +89,20 @@ function mount(
     rematch: mockRematch,
     ...overrides,
   };
+}
+
+function mount(
+  as: string,
+  overrides: Partial<typeof mockGameValue> = {},
+): ReactTestRenderer {
+  show(as, overrides);
   return render(<GameOverScreen />);
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockRecordResult.mockResolvedValue(undefined);
+  mockSound = true;
 });
 
 describe('GameOverScreen summary', () => {
@@ -183,5 +199,65 @@ describe('GameOverScreen stats', () => {
 
   it('renders nothing without a game', () => {
     expect(mount('a', { game: null }).toJSON()).toBeNull();
+  });
+});
+
+describe('GameOverScreen sounds', () => {
+  const played = () => (playSound as jest.Mock).mock.calls.map(call => call[0]);
+
+  /** The same game one snapshot earlier: B still held a card and nobody had won. */
+  function stillPlaying(): Game {
+    const game = finished();
+    game.players.b.influence[0].revealed = false;
+    game.players.b.influence[1].revealed = false;
+    return {
+      ...game,
+      status: 'playing',
+      winner: null,
+      state: { ...game.state, phase: 'action' },
+    };
+  }
+
+  /** Stands in for the game screen, which was showing the game until it ended. */
+  function Playing({ as }: { as: string }) {
+    useGameSounds(stillPlaying(), as);
+    return null;
+  }
+
+  /** The router's swap when the game ends: the game screen closes and this one opens, in one update. */
+  function finishFor(as: string) {
+    show(as);
+    const renderer = render(<Playing as={as} />);
+    act(() => {
+      renderer.update(<GameOverScreen />);
+    });
+    return renderer;
+  }
+
+  it('is silent when a finished game is opened', () => {
+    mount('a');
+    mount('b');
+    expect(played()).toEqual([]);
+  });
+
+  it('plays the win sound for the winner when the game ends', () => {
+    finishFor('a');
+    expect(played()).toEqual(['card', 'win']);
+  });
+
+  it('plays the lose sound for everyone else who played', () => {
+    finishFor('b');
+    expect(played()).toEqual(['card', 'lose']);
+  });
+
+  it('plays nothing with sound switched off', () => {
+    mockSound = false;
+    finishFor('a');
+    expect(played()).toEqual([]);
+  });
+
+  it('plays nothing for someone who was not playing', () => {
+    finishFor('stranger');
+    expect(played()).toEqual([]);
   });
 });

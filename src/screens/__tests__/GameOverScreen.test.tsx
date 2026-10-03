@@ -8,6 +8,7 @@ import {
   rendered,
   texts,
 } from '../../components/testUtils';
+import { removePlayer } from '../../engine/lobby';
 import { makeGame } from '../../engine/testHelpers';
 import { Card, Game } from '../../engine/types';
 import { playSound } from '../../ui/sound';
@@ -130,6 +131,77 @@ describe('GameOverScreen summary', () => {
     expect(rendered(renderer)).toContain('ROUND ');
   });
 
+  describe('when a challenge ended the game', () => {
+    /** B called A's Duke, was wrong, and went out on it: nobody saw the result on the table. */
+    const byChallenge = (): Game => ({
+      ...finished(),
+      revealSeq: 3,
+      reveal: {
+        id: 3,
+        challenger: 'b',
+        claimant: 'a',
+        card: 'Duke',
+        truthful: true,
+        block: false,
+      },
+    });
+
+    /** The lines under "How it went", top to bottom. */
+    const story = (renderer: ReactTestRenderer) =>
+      texts(renderer).filter(
+        (text): text is string =>
+          typeof text === 'string' &&
+          (text.includes('taken out') ||
+            text.includes('had the') ||
+            text.includes('bluffing')),
+      );
+
+    it('tells how the last challenge went, first', () => {
+      expect(story(mount('c', { game: byChallenge() }))).toEqual([
+        'A had the Duke',
+        'C — taken out by B (turn 6)',
+        'B — taken out by A (turn 11)',
+      ]);
+    });
+
+    it('says a bluff was a bluff', () => {
+      const game = byChallenge();
+      const bluff: Game = {
+        ...game,
+        reveal: { ...game.reveal!, truthful: false },
+      };
+      expect(story(mount('c', { game: bluff }))[0]).toBe(
+        'A was bluffing — no Duke',
+      );
+    });
+
+    it('shows it even when nobody was taken out', () => {
+      const game: Game = { ...byChallenge(), eliminations: [] };
+      const renderer = mount('c', { game });
+      expect(story(renderer)).toEqual(['A had the Duke']);
+      expect(texts(renderer)).not.toContain('Nobody was taken out.');
+    });
+
+    it('still makes sense when the claimant has gone home', () => {
+      const game = byChallenge();
+      const left = removePlayer(
+        {
+          ...game,
+          reveal: { ...game.reveal!, claimant: 'b', challenger: 'a' },
+        },
+        'b',
+      );
+      expect(left.players.b).toBeUndefined();
+      const renderer = mount('c', { game: left });
+      expect(story(renderer)[0]).toBe('? had the Duke');
+      expect(rendered(renderer)).not.toContain('undefined');
+    });
+
+    it('adds no line when there was no challenge', () => {
+      expect(story(mount('c'))).toHaveLength(2);
+    });
+  });
+
   it('says so when nobody was taken out', () => {
     const game = { ...finished(), eliminations: [] };
     expect(texts(mount('a', { game }))).toContain('Nobody was taken out.');
@@ -192,6 +264,22 @@ describe('GameOverScreen stats', () => {
     expect(mockRecordResult).toHaveBeenCalledWith('game-1:2', false);
   });
 
+  it('keeps the one record when the player then leaves and their seat is freed', () => {
+    const renderer = mount('b');
+    expect(mockRecordResult).toHaveBeenCalledTimes(1);
+    expect(mockRecordResult).toHaveBeenCalledWith('game-1:2', false);
+
+    // "Back to Home": the server drops B a moment before this screen closes.
+    const after = removePlayer(finished(), 'b');
+    expect(after.players.b).toBeUndefined();
+    show('b', { game: after });
+    act(() => {
+      renderer.update(<GameOverScreen />);
+    });
+    expect(mockRecordResult).toHaveBeenCalledTimes(1);
+    expect(rendered(renderer)).not.toContain('undefined');
+  });
+
   it('records nothing for someone who was not playing', () => {
     mount('stranger');
     expect(mockRecordResult).not.toHaveBeenCalled();
@@ -228,6 +316,8 @@ describe('GameOverScreen sounds', () => {
   function finishFor(as: string) {
     show(as);
     const renderer = render(<Playing as={as} />);
+    // Whatever opening the game screen played (A's own turn, say) is not what is being tested.
+    (playSound as jest.Mock).mockClear();
     act(() => {
       renderer.update(<GameOverScreen />);
     });

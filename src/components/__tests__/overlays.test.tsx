@@ -1,5 +1,5 @@
 import React from 'react';
-import { BackHandler, ScrollView } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
   ACTION_DETAIL,
@@ -158,6 +158,75 @@ describe('RevealOverlay', () => {
     expect(texts(renderer)).toContain('BLUFF');
     press(renderer, 'reveal-overlay');
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  const overlay = (
+    props: Partial<React.ComponentProps<typeof RevealOverlay>>,
+  ) =>
+    render(
+      <RevealOverlay
+        card="Duke"
+        truthful={false}
+        headline="Maria was bluffing — no Duke"
+        consequence="Maria loses a card"
+        onDismiss={jest.fn()}
+        {...props}
+      />,
+    );
+  const flat = (style: unknown) => StyleSheet.flatten(style as never) as any;
+
+  it('lets every touch outside the card through to the table', () => {
+    const renderer = overlay({});
+    const root = renderer.toJSON() as any;
+    // The container is never a touch target itself, and the dimmed layer takes no touches at all.
+    expect(root.props.pointerEvents).toBe('box-none');
+    expect(host(renderer, 'reveal-scrim').props.pointerEvents).toBe('none');
+    expect(host(renderer, 'reveal-region').props.pointerEvents).toBe(
+      'box-none',
+    );
+    // The card is the only thing that answers a tap.
+    const touchable = renderer.root.findAll(
+      node =>
+        typeof node.type === 'string' &&
+        (node.props.onClick !== undefined ||
+          node.props.onStartShouldSetResponder !== undefined ||
+          node.props.onResponderGrant !== undefined),
+    );
+    expect(touchable.map(node => node.props.testID)).toEqual([
+      'reveal-overlay',
+    ]);
+  });
+
+  it('keeps the card above the hand and the actions', () => {
+    const region = host(overlay({ bottomInset: 134 }), 'reveal-region');
+    expect(flat(region.props.style)).toMatchObject({
+      position: 'absolute',
+      top: 0,
+      bottom: 134,
+    });
+    // The dimming still covers the whole table.
+    const scrim = host(overlay({ bottomInset: 134 }), 'reveal-scrim');
+    expect(flat(scrim.props.style)).toMatchObject({ top: 0, bottom: 0 });
+  });
+
+  it('never grows past the space it is given', () => {
+    [false, true].forEach(compact => {
+      const card = findButton(overlay({ compact }), 'reveal-overlay')!;
+      // Pressable hands its style to the view underneath.
+      const view = host(overlay({ compact }), 'reveal-overlay');
+      expect(card).toBeDefined();
+      expect(flat(view.props.style)).toMatchObject({
+        maxHeight: '100%',
+        overflow: 'hidden',
+      });
+    });
+  });
+
+  it('says the same in the short layout', () => {
+    const renderer = overlay({ compact: true });
+    expect(texts(renderer)).toContain('Maria was bluffing — no Duke');
+    expect(texts(renderer)).toContain('Maria loses a card');
+    expect(texts(renderer)).toContain('BLUFF');
   });
 
   it('marks a true claim as true', () => {

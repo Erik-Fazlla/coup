@@ -66,6 +66,8 @@ import { useTurnBuzz } from '../ui/turnBuzz';
 const HAND_PADDING = 6;
 const HAND_HEADER_HEIGHT = 20;
 const HAND_SIDE_WIDTH = 58;
+/** Height above the hand from which a challenge result fits with its emblem on top; below it, the emblem goes beside the text. */
+const REVEAL_STACKED_FROM = 270;
 
 interface Box {
   width: number;
@@ -193,12 +195,16 @@ export function GameScreen() {
     : line.text;
   const latest = game.log.length > 0 ? game.log[game.log.length - 1] : null;
 
+  const tableHeight =
+    box?.height ?? window.height - 2 * COMPACT_PADDING.vertical;
   const layout = tableLayout(
     box?.width ?? window.width - 2 * COMPACT_PADDING.horizontal,
-    box?.height ?? window.height - 2 * COMPACT_PADDING.vertical,
+    tableHeight,
     opponents.length,
   );
   const { portrait } = layout;
+  // A challenge result stays above the hand and the actions: its loser must pick a card straight away.
+  const revealInset = layout.bottomHeight + REGION_GAP;
   const seatRows: string[][] = [];
   for (let start = 0; start < opponents.length; start += layout.seatsPerRow) {
     seatRows.push(opponents.slice(start, start + layout.seatsPerRow));
@@ -407,6 +413,8 @@ export function GameScreen() {
             truthful={reveal.truthful}
             headline={revealLine(game)}
             consequence={revealLoserLine(game)}
+            bottomInset={revealInset}
+            compact={tableHeight - revealInset < REVEAL_STACKED_FROM}
             onDismiss={dismissReveal}
           />
         )}

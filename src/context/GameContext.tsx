@@ -274,11 +274,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const leave = useCallback(
     () =>
       run(async () => {
-        // Tell the server first so a failure keeps the player in the lobby with the error visible.
-        if (gameId && game && game.status === 'waiting' && connected) {
+        // Tell the server first so a failure keeps the player where they are with the error visible.
+        if (gameId && game && connected) {
           if (game.host === playerId) {
-            await games.cancelLobby(gameId, playerId);
-          } else {
+            // The host of a finished game just goes: the others can still read the result.
+            if (game.status === 'waiting') {
+              await games.cancelLobby(gameId, playerId);
+            }
+          } else if (game.status === 'waiting' || game.status === 'finished') {
+            // A guest's seat is freed, so they are not dealt into a round they will not play.
             await games.leaveLobby(gameId, playerId);
           }
         }

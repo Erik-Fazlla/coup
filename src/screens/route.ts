@@ -58,7 +58,8 @@ export function routeFor(input: RouteInput, playerId: string): Route {
     case 'playing':
       return 'game';
     case 'finished':
-      return 'over';
+      // A guest going Home is dropped from the game a moment before this device forgets it.
+      return busy && !game.players[playerId] ? 'blank' : 'over';
     default:
       return 'unknown';
   }

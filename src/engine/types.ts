@@ -130,7 +130,9 @@ export type GameAction =
   | { type: 'challenge'; playerId: string; seq: number }
   | { type: 'block'; playerId: string; claim: Card; seq: number }
   | { type: 'loseInfluence'; playerId: string; cardIndex: number }
-  | { type: 'exchangeChoose'; playerId: string; keep: number[] };
+  | { type: 'exchangeChoose'; playerId: string; keep: number[] }
+  /** Host only: does the minimal default for whoever the game is waiting on. */
+  | { type: 'skip'; playerId: string };
 
 export type DeclareAction = Extract<GameAction, { type: ActionType }>;
 

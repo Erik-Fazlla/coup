@@ -88,6 +88,10 @@ export interface Game {
   log: string[];
   winner: string | null;
   createdAt: number;
+  /** Which game of this lobby is being played; starts at 1 and goes up with every rematch. */
+  round: number;
+  /** Wins in this lobby across rounds. Players without a win may be missing. */
+  scores: Record<string, number>;
 }
 
 export type GameAction =

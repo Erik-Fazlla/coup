@@ -78,5 +78,7 @@ export function normalizeGame(raw: any): Game {
     log: toArray(raw.log),
     winner: raw.winner ?? null,
     createdAt: raw.createdAt ?? 0,
+    round: raw.round ?? 1,
+    scores: { ...(raw.scores ?? {}) },
   };
 }

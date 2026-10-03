@@ -13,6 +13,7 @@ import {
   addPlayer,
   generateCode,
   newGame,
+  rematch as rematchLobby,
   removePlayer,
   startGame as startLobby,
 } from '../engine/lobby';
@@ -106,6 +107,11 @@ export function createGameService(
     return mutate(gameId, game => startLobby(game, playerId, rng));
   }
 
+  /** Takes a finished game back to the lobby for another round. Host only. */
+  function rematch(gameId: string, playerId: string): Promise<void> {
+    return mutate(gameId, game => rematchLobby(game, playerId, rng));
+  }
+
   function leaveLobby(gameId: string, playerId: string): Promise<void> {
     return mutate(gameId, game => removePlayer(game, playerId));
   }
@@ -156,6 +162,7 @@ export function createGameService(
     createGame,
     joinGame,
     startGame,
+    rematch,
     leaveLobby,
     cancelLobby,
     dispatch,

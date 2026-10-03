@@ -80,6 +80,15 @@ describe('profile store', () => {
     expect(profile).toMatchObject({ gamesPlayed: 1, wins: 1 });
   });
 
+  it('counts every round of the same game when the key carries the round', async () => {
+    const { store } = setup();
+    await store.setName('Erik');
+    await store.recordResult('g1:1', true);
+    await store.recordResult('g1:1', true);
+    const profile = await store.recordResult('g1:2', false);
+    expect(profile).toMatchObject({ gamesPlayed: 2, wins: 1 });
+  });
+
   it('returns null when recording without a profile', async () => {
     expect(await setup().store.recordResult('g1', true)).toBeNull();
   });

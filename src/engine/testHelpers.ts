@@ -49,6 +49,8 @@ export function makeGame(
     log: [],
     winner: null,
     createdAt: 0,
+    round: 1,
+    scores: {},
   };
 }
 

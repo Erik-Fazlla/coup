@@ -60,6 +60,8 @@ export function newGame(
     log: [],
     winner: null,
     createdAt: now,
+    round: 1,
+    scores: {},
   };
 }
 
@@ -130,8 +132,41 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
     turnNumber: 1,
     pending: null,
     lastAction: null,
-    claimSeq: 0,
+    // Kept rather than reset: after a rematch a tap from the previous round must never match again.
+    claimSeq: next.state.claimSeq,
   };
   next.log = ['Game started'];
+  return next;
+}
+
+/**
+ * Takes a finished game back to the lobby for another round with the same players.
+ * Scores carry over; everything that belonged to the finished round is cleared.
+ * `rng` is part of the signature so a future change (such as a random seating) needs no new plumbing.
+ */
+export function rematch(game: Game, playerId: string, _rng: Rng): Game {
+  if (playerId !== game.host) {
+    throw new IllegalActionError('Only the host can start a new round');
+  }
+  if (game.status !== 'finished') {
+    throw new IllegalActionError('The game is not finished');
+  }
+  const next = clone(game);
+  next.playerOrder.forEach(id => {
+    next.players[id] = newPlayer(next.players[id].name);
+  });
+  next.status = 'waiting';
+  next.deck = [];
+  next.log = [];
+  next.winner = null;
+  next.round = game.round + 1;
+  next.state = {
+    phase: 'action',
+    currentTurnPlayer: next.host,
+    turnNumber: 0,
+    pending: null,
+    lastAction: null,
+    claimSeq: game.state.claimSeq,
+  };
   return next;
 }

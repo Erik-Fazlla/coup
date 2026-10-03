@@ -1,6 +1,8 @@
 import {
+  ACTION_CLAIM,
   ACTION_COST,
   availableActions,
+  BLOCK_CLAIMS,
   FORCED_COUP_COINS,
   pendingResponders,
 } from './rules';
@@ -139,6 +141,107 @@ export function revealLine(game: Game): string {
     ? `${claimant} had the ${reveal.card}`
     : `${claimant} was bluffing — no ${reveal.card}`;
 }
+
+/** Who pays for the latest challenge, e.g. "Erik loses a card". Empty when there has been none. */
+export function revealLoserLine(game: Game): string {
+  const reveal = game.reveal;
+  if (!reveal) {
+    return '';
+  }
+  const loser = reveal.truthful ? reveal.challenger : reveal.claimant;
+  return `${nameOf(game, loser)} loses a card`;
+}
+
+/**
+ * The players the game cannot continue without right now: whoever must act,
+ * respond, lose a card or finish an exchange. Empty when nobody is.
+ */
+export function waitingOn(game: Game): string[] {
+  if (game.status !== 'playing') {
+    return [];
+  }
+  const { phase, pending, currentTurnPlayer } = game.state;
+  switch (phase) {
+    case 'action':
+      return [currentTurnPlayer];
+    case 'awaitingResponses':
+    case 'awaitingBlockResponses':
+      return pendingResponders(game);
+    case 'loseInfluence':
+      return pending?.loseInfluence ? [pending.loseInfluence.playerId] : [];
+    case 'exchange':
+      return pending ? [pending.actor] : [];
+    default:
+      return [];
+  }
+}
+
+/** Names of the players the game is waiting for, e.g. "Maria, Nikos". Empty when nobody is. */
+export function waitingNames(game: Game): string {
+  return waitingOn(game)
+    .map(id => nameOf(game, id))
+    .join(', ');
+}
+
+/** The invitation sent through the share sheet. Plain text, so every app accepts it. */
+export function shareMessage(code: string): string {
+  return `Join my Coup game — code ${code}`;
+}
+
+/** The order actions are listed in: free ones first, then the character actions, Coup last. */
+export const ACTION_ORDER: ActionType[] = [
+  'income',
+  'foreignAid',
+  'tax',
+  'exchange',
+  'steal',
+  'assassinate',
+  'coup',
+];
+
+export interface ActionRule {
+  action: ActionType;
+  label: string;
+  /** "Free" or "3 coins". */
+  cost: string;
+  effect: string;
+  /** The character the player claims to hold, or null when anyone may do it. */
+  claim: Card | null;
+  /** Characters that may be claimed to stop it. */
+  blockedBy: Card[];
+}
+
+/** One row per action for the rules reference, read from the tables the engine itself plays by. */
+export function actionRules(): ActionRule[] {
+  return ACTION_ORDER.map(action => ({
+    action,
+    label: ACTION_LABEL[action],
+    cost: ACTION_COST[action] > 0 ? `${ACTION_COST[action]} coins` : 'Free',
+    effect: ACTION_DETAIL[action],
+    claim: ACTION_CLAIM[action],
+    blockedBy: BLOCK_CLAIMS[action],
+  }));
+}
+
+/** The rules that are not a table: short paragraphs for the rules reference. */
+export const RULE_NOTES: { title: string; text: string }[] = [
+  {
+    title: 'Challenges',
+    text: 'Whenever a player claims a character, for an action or for a block, any other player may challenge. If the claim was true, the challenger loses a card and the claimant swaps the shown card for a new one from the deck. If it was a bluff, the claimant loses a card and the action or block fails.',
+  },
+  {
+    title: 'Blocks',
+    text: 'Some actions can be stopped by claiming the character listed next to them. Anyone may block Foreign Aid; only the target may block a Steal or an Assassination. A block is a claim too, so it can be challenged.',
+  },
+  {
+    title: 'Losing influence',
+    text: 'When you lose a card you choose which one, and it stays face up for everyone to see. Lose both and you are out. The last player holding a card wins.',
+  },
+  {
+    title: 'Forced Coup',
+    text: `With ${FORCED_COUP_COINS} or more coins you must Coup on your turn. A Coup costs ${ACTION_COST.coup} coins and cannot be blocked or challenged.`,
+  },
+];
 
 /** One line per player who went out this round, in order: who, taken out by whom, on which turn. */
 export function eliminationLines(game: Game): string[] {

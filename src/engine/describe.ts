@@ -128,6 +128,47 @@ export function promptLine(game: Game): string {
     : `${actor} uses ${actionText(game, pending)}`;
 }
 
+/** How the latest challenge turned out, e.g. "Maria had the Duke". Empty when there has been none. */
+export function revealLine(game: Game): string {
+  const reveal = game.reveal;
+  if (!reveal) {
+    return '';
+  }
+  const claimant = nameOf(game, reveal.claimant);
+  return reveal.truthful
+    ? `${claimant} had the ${reveal.card}`
+    : `${claimant} was bluffing — no ${reveal.card}`;
+}
+
+/** One line per player who went out this round, in order: who, taken out by whom, on which turn. */
+export function eliminationLines(game: Game): string[] {
+  return game.eliminations.map(({ playerId, by, turn }) => {
+    const cause = by ? `taken out by ${nameOf(game, by)}` : 'out';
+    return `${nameOf(game, playerId)} — ${cause} (turn ${turn})`;
+  });
+}
+
+export interface ScoreRow {
+  playerId: string;
+  name: string;
+  wins: number;
+}
+
+/** Wins in this lobby for every current player, most first; equal scores stay in join order. */
+export function scoreboard(game: Game): ScoreRow[] {
+  return game.playerOrder
+    .map((playerId, joined) => ({
+      joined,
+      row: {
+        playerId,
+        name: nameOf(game, playerId),
+        wins: game.scores[playerId] ?? 0,
+      },
+    }))
+    .sort((a, b) => b.row.wins - a.row.wins || a.joined - b.joined)
+    .map(entry => entry.row);
+}
+
 /** Why the player cannot declare this action right now, or null when they can. */
 export function unavailableReason(
   game: Game,

@@ -51,6 +51,9 @@ export function makeGame(
     createdAt: 0,
     round: 1,
     scores: {},
+    eliminations: [],
+    reveal: null,
+    revealSeq: 0,
   };
 }
 

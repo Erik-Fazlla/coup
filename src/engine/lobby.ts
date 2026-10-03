@@ -62,6 +62,9 @@ export function newGame(
     createdAt: now,
     round: 1,
     scores: {},
+    eliminations: [],
+    reveal: null,
+    revealSeq: 0,
   };
 }
 
@@ -135,6 +138,8 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
     // Kept rather than reset: after a rematch a tap from the previous round must never match again.
     claimSeq: next.state.claimSeq,
   };
+  next.eliminations = [];
+  next.reveal = null;
   next.log = ['Game started'];
   return next;
 }
@@ -159,6 +164,9 @@ export function rematch(game: Game, playerId: string, _rng: Rng): Game {
   next.deck = [];
   next.log = [];
   next.winner = null;
+  next.eliminations = [];
+  // `revealSeq` is left alone so the next round's reveals carry ids no client has seen before.
+  next.reveal = null;
   next.round = game.round + 1;
   next.state = {
     phase: 'action',

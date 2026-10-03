@@ -77,6 +77,27 @@ export interface GameState {
   claimSeq: number;
 }
 
+/** One player going out. `by` is the player whose action or challenge took their last card. */
+export interface Elimination {
+  playerId: string;
+  by: string | null;
+  turn: number;
+}
+
+/** How the most recent challenge turned out. Says nothing the log does not already say publicly. */
+export interface Reveal {
+  /** Goes up by 1 with every reveal for the lifetime of the game id, so each can be shown exactly once. */
+  id: number;
+  challenger: string;
+  claimant: string;
+  /** The character that was claimed. */
+  card: Card;
+  /** Whether the claimant really held it. */
+  truthful: boolean;
+  /** Whether the challenged claim was a block rather than an action. */
+  block: boolean;
+}
+
 export interface Game {
   host: string;
   code: string;
@@ -92,6 +113,12 @@ export interface Game {
   round: number;
   /** Wins in this lobby across rounds. Players without a win may be missing. */
   scores: Record<string, number>;
+  /** Who went out this round, in order. */
+  eliminations: Elimination[];
+  /** Outcome of the latest challenge; stays until the next one or a rematch. */
+  reveal: Reveal | null;
+  /** Id of the last reveal ever made in this game id. Survives rematches so ids never repeat. */
+  revealSeq: number;
 }
 
 export type GameAction =

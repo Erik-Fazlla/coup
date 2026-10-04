@@ -1,3 +1,5 @@
+import { copiesPerCharacter, LARGE_GAME_FROM } from './deck';
+import { MAX_PLAYERS, MIN_PLAYERS } from './lobby';
 import {
   ACTION_CLAIM,
   ACTION_COST,
@@ -225,6 +227,16 @@ export function actionRules(): ActionRule[] {
 
 /** The rules that are not a table: short paragraphs for the rules reference. */
 export const RULE_NOTES: { title: string; text: string }[] = [
+  {
+    title: 'Players and deck',
+    text: `${MIN_PLAYERS} to ${MAX_PLAYERS} players. Up to ${
+      LARGE_GAME_FROM - 1
+    } play with ${copiesPerCharacter(
+      MIN_PLAYERS,
+    )} of each character; from ${LARGE_GAME_FROM} there are ${copiesPerCharacter(
+      LARGE_GAME_FROM,
+    )} of each. With ${MAX_PLAYERS} players every card is dealt, so the deck starts empty.`,
+  },
   {
     title: 'Challenges',
     text: 'Whenever a player claims a character, for an action or for a block, any other player may challenge. If the claim was true, the challenger loses a card and the claimant swaps the shown card for a new one from the deck. If it was a bluff, the claimant loses a card and the action or block fails.',

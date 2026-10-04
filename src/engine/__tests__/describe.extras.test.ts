@@ -133,13 +133,20 @@ describe('actionRules', () => {
 });
 
 describe('RULE_NOTES', () => {
-  it('covers challenges, blocks, losing influence and the forced Coup', () => {
+  it('covers the deck, challenges, blocks, losing influence and the forced Coup', () => {
     expect(RULE_NOTES.map(note => note.title)).toEqual([
+      'Players and deck',
       'Challenges',
       'Blocks',
       'Losing influence',
       'Forced Coup',
     ]);
+  });
+
+  it('states the player limits and both deck sizes', () => {
+    expect(RULE_NOTES[0].text).toBe(
+      '2 to 10 players. Up to 6 play with 3 of each character; from 7 there are 4 of each. With 10 players every card is dealt, so the deck starts empty.',
+    );
   });
 
   it('takes the forced Coup numbers from the engine', () => {

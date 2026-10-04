@@ -1,17 +1,53 @@
-import { buildDeck, shuffle } from '../deck';
+import { buildDeck, copiesPerCharacter, deckSize, shuffle } from '../deck';
 import { CARDS } from '../types';
 
 describe('buildDeck', () => {
-  it('has 15 cards, 3 of each character', () => {
-    const deck = buildDeck();
-    expect(deck).toHaveLength(15);
-    CARDS.forEach(card => expect(deck.filter(c => c === card)).toHaveLength(3));
+  it.each([2, 3, 4, 5, 6])(
+    'has 15 cards, 3 of each character, for %i players',
+    players => {
+      const deck = buildDeck(players);
+      expect(deck).toHaveLength(15);
+      expect(deckSize(players)).toBe(15);
+      expect(copiesPerCharacter(players)).toBe(3);
+      CARDS.forEach(card =>
+        expect(deck.filter(c => c === card)).toHaveLength(3),
+      );
+    },
+  );
+
+  it.each([7, 8, 9, 10])(
+    'has 20 cards, 4 of each character, for %i players',
+    players => {
+      const deck = buildDeck(players);
+      expect(deck).toHaveLength(20);
+      expect(deckSize(players)).toBe(20);
+      expect(copiesPerCharacter(players)).toBe(4);
+      CARDS.forEach(card =>
+        expect(deck.filter(c => c === card)).toHaveLength(4),
+      );
+    },
+  );
+
+  it('keeps the copies of a character together, in the order of CARDS', () => {
+    expect(buildDeck(2).slice(0, 4)).toEqual([
+      CARDS[0],
+      CARDS[0],
+      CARDS[0],
+      CARDS[1],
+    ]);
+    expect(buildDeck(7).slice(0, 5)).toEqual([
+      CARDS[0],
+      CARDS[0],
+      CARDS[0],
+      CARDS[0],
+      CARDS[1],
+    ]);
   });
 });
 
 describe('shuffle', () => {
   it('keeps the same cards', () => {
-    const deck = buildDeck();
+    const deck = buildDeck(7);
     expect([...shuffle(deck, Math.random)].sort()).toEqual([...deck].sort());
   });
 

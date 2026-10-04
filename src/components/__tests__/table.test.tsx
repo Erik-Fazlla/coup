@@ -12,6 +12,7 @@ import {
   REGION_GAP,
   SEAT_GAP,
   SEAT_HEIGHT,
+  SLIM_SEAT_HEIGHT,
   tableLayout,
   TILE_GAP,
   TOP_BAR_HEIGHT,
@@ -198,6 +199,91 @@ describe('tableLayout in portrait', () => {
     expect(tileHeight(layout.controlsHeight)).toBe(64);
     expect(layout.handHeight).toBe(116);
     expect(used(388, 836, 3)).toBe(836);
+  });
+});
+
+describe('tableLayout with a full table of nine opponents', () => {
+  /** Everything stacked on the table, at the seat height the layout chose. */
+  const used = (width: number, height: number) => {
+    const layout = tableLayout(width, height, 9);
+    const seats =
+      layout.seatRows * layout.seatHeight + (layout.seatRows - 1) * SEAT_GAP;
+    return layout.portrait
+      ? TOP_BAR_HEIGHT +
+          seats +
+          layout.bannerHeight +
+          layout.handHeight +
+          layout.controlsHeight +
+          4 * REGION_GAP
+      : TOP_BAR_HEIGHT +
+          seats +
+          layout.bannerHeight +
+          layout.bottomHeight +
+          3 * REGION_GAP;
+  };
+
+  it('seats nine in two rows of five on a 640x360 phone in landscape', () => {
+    const layout = tableLayout(616, 344, 9);
+    expect(layout.seatsPerRow).toBe(5);
+    expect(layout.seatRows).toBe(2);
+    expect(layout.seatWidth).toBe(118);
+    expect(layout.seatHeight).toBe(SEAT_HEIGHT);
+    expect(layout.bottomHeight).toBe(128);
+    expect(layout.bannerHeight).toBe(36);
+    expect(used(616, 344)).toBe(344);
+  });
+
+  it('lets crowded seats go a little narrower rather than take a third row', () => {
+    // Five opponents need 108 each and wrap to rows of three here; nine may use 100.
+    expect(tableLayout(548, 328, 5).seatsPerRow).toBe(3);
+    const layout = tableLayout(548, 328, 9);
+    expect(layout.seatsPerRow).toBe(5);
+    expect(layout.seatRows).toBe(2);
+    expect(layout.seatWidth).toBe(104);
+    expect(layout.seatWidth * 5 + SEAT_GAP * 4).toBeLessThanOrEqual(548);
+    expect(layout.seatHeight).toBe(SEAT_HEIGHT);
+    expect(layout.bottomHeight).toBeGreaterThanOrEqual(104);
+    expect(layout.bannerHeight).toBe(BANNER_MIN_HEIGHT);
+    expect(used(548, 328)).toBe(328);
+  });
+
+  it('fits a 360x640 phone in portrait with three rows of three', () => {
+    const layout = tableLayout(336, 624, 9);
+    expect(layout.seatsPerRow).toBe(3);
+    expect(layout.seatRows).toBe(3);
+    expect(layout.seatWidth).toBe(108);
+    expect(layout.seatHeight).toBe(SEAT_HEIGHT);
+    expect(layout.handHeight).toBe(100);
+    expect(layout.controlsHeight).toBe(226);
+    expect(layout.bannerHeight).toBe(50);
+    expect(used(336, 624)).toBe(624);
+  });
+
+  it('keeps regular seats while the banner still has its line', () => {
+    const layout = tableLayout(336, 568, 9);
+    expect(layout.seatHeight).toBe(SEAT_HEIGHT);
+    expect(layout.bannerHeight).toBe(BANNER_MIN_HEIGHT);
+    expect(used(336, 568)).toBe(568);
+  });
+
+  it('switches to slim seats when regular ones would squeeze the banner out', () => {
+    const layout = tableLayout(336, 540, 9);
+    expect(layout.seatHeight).toBe(SLIM_SEAT_HEIGHT);
+    expect(layout.seatRows).toBe(3);
+    expect(layout.bannerHeight).toBe(BANNER_MIN_HEIGHT);
+    expect(layout.handHeight).toBe(76);
+    expect((layout.controlsHeight - 3 * TILE_GAP) / 4).toBeGreaterThanOrEqual(
+      44,
+    );
+    expect(SLIM_SEAT_HEIGHT).toBeGreaterThanOrEqual(44);
+    expect(used(336, 540)).toBe(540);
+  });
+
+  it('never uses slim seats for a table that fits, at any player count', () => {
+    for (let opponents = 1; opponents <= 9; opponents++) {
+      expect(tableLayout(616, 344, opponents).seatHeight).toBe(SEAT_HEIGHT);
+      expect(tableLayout(336, 624, opponents).seatHeight).toBe(SEAT_HEIGHT);
+    }
   });
 });
 

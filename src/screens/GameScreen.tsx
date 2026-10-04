@@ -240,6 +240,7 @@ export function GameScreen() {
                     isTurn={id === currentTurnPlayer}
                     compact={layout.compactSeats}
                     width={layout.seatWidth}
+                    height={layout.seatHeight}
                     online={isOnline(presence, id)}
                     target={
                       aiming && targets.includes(id)

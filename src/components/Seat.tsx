@@ -23,12 +23,17 @@ interface Props {
   /** Shorter tag text ("TAP"), and on a narrow seat a smaller name. */
   compact?: boolean;
   width?: number;
+  /** Below the regular seat height the seat drops most of its padding and uses the smaller name. */
+  height?: number;
   /** Set only while the local player is choosing a target and this player is a legal one. */
   target?: SeatTarget | null;
   /** Whether this player's phone is connected; null or missing draws no dot. */
   online?: boolean | null;
   testID?: string;
 }
+
+/** Vertical padding of a slim seat: its 48 hold the border, a 15 name line and the 24 cards. */
+const SLIM_PADDING = 2;
 
 const plural = (count: number, word: string) =>
   `${count} ${word}${count === 1 ? '' : 's'}`;
@@ -60,6 +65,7 @@ export function Seat({
   isTurn,
   compact = false,
   width,
+  height = SEAT_HEIGHT,
   target = null,
   online = null,
   testID,
@@ -68,8 +74,9 @@ export function Seat({
   const lost = player.influence.filter(i => i.revealed).map(i => i.card);
   const out = hidden === 0;
   // The short tag is used at every width; the smaller name only where the seat really is narrow.
+  const slim = height < SEAT_HEIGHT;
   const smallName =
-    compact && (width === undefined || width < SMALL_SEAT_NAME_BELOW);
+    slim || (compact && (width === undefined || width < SMALL_SEAT_NAME_BELOW));
 
   const summary = [
     player.name,
@@ -92,6 +99,7 @@ export function Seat({
   const frame = [
     styles.seat,
     width === undefined ? styles.fill : { width },
+    slim && { height, paddingVertical: SLIM_PADDING },
     isTurn && styles.turn,
     out && styles.out,
     target && styles.targetable,

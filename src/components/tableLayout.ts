@@ -16,7 +16,13 @@ export const BANNER_MIN_HEIGHT = 28;
 /** Space between action tiles, and between cards. */
 export const TILE_GAP = 6;
 
+/** Seat height when the table is too full for the regular one: the same two lines, packed tighter. */
+export const SLIM_SEAT_HEIGHT = 48;
+
 const SEAT_MIN_WIDTH = 108;
+/** With this many opponents or more (a 7 to 10 player game) seats may be a little narrower, to save a row. */
+const CROWDED_FROM = 6;
+const CROWDED_SEAT_MIN_WIDTH = 100;
 const SEAT_MAX_WIDTH = 220;
 /**
  * Above the widest seat, so the short "TAP" tag is the one always used: the long
@@ -50,6 +56,8 @@ export interface TableLayout {
   seatsPerRow: number;
   seatRows: number;
   seatWidth: number;
+  /** Regular, or slim when the regular seats would leave the banner less than one line. */
+  seatHeight: number;
   /** Use the short "tap" tag instead of "tap to target". True at every seat width the table produces. */
   compactSeats: boolean;
   /**
@@ -81,11 +89,26 @@ export function tableLayout(
   height: number,
   opponentCount: number,
 ): TableLayout {
+  const regular = layoutWith(width, height, opponentCount, SEAT_HEIGHT);
+  // A full table on a small phone: slimmer seats rather than a banner with no room for its line.
+  return regular.bannerHeight >= BANNER_MIN_HEIGHT
+    ? regular
+    : layoutWith(width, height, opponentCount, SLIM_SEAT_HEIGHT);
+}
+
+function layoutWith(
+  width: number,
+  height: number,
+  opponentCount: number,
+  seatHeight: number,
+): TableLayout {
   const portrait = height >= width;
   const count = Math.max(1, opponentCount);
+  const seatMinWidth =
+    count >= CROWDED_FROM ? CROWDED_SEAT_MIN_WIDTH : SEAT_MIN_WIDTH;
   const fitInOneRow = Math.max(
     1,
-    Math.floor((width + SEAT_GAP) / (SEAT_MIN_WIDTH + SEAT_GAP)),
+    Math.floor((width + SEAT_GAP) / (seatMinWidth + SEAT_GAP)),
   );
   // As few rows as keep every seat at its minimum width, filled evenly.
   const seatRows = Math.ceil(count / fitInOneRow);
@@ -94,12 +117,13 @@ export function tableLayout(
     SEAT_MAX_WIDTH,
     Math.floor((width - SEAT_GAP * (seatsPerRow - 1)) / seatsPerRow),
   );
-  const seatsHeight = seatRows * SEAT_HEIGHT + (seatRows - 1) * SEAT_GAP;
+  const seatsHeight = seatRows * seatHeight + (seatRows - 1) * SEAT_GAP;
   const seats = {
     portrait,
     seatsPerRow,
     seatRows,
     seatWidth,
+    seatHeight,
     compactSeats: seatWidth < COMPACT_SEAT_BELOW,
   };
 

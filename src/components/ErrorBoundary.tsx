@@ -4,6 +4,7 @@ import { getServices } from '../firebase';
 import { colors, spacing, typography } from '../theme';
 import { Button } from './Button';
 import { Panel } from './Panel';
+import { Screen } from './Screen';
 
 interface State {
   error: Error | null;
@@ -38,26 +39,26 @@ export class ErrorBoundary extends React.Component<
     if (!error) {
       return this.props.children;
     }
+    // The boundary sits inside the SafeAreaProvider (App.tsx), so the fallback can use the
+    // same Screen as everything else and stay clear of the camera cut-out and the system bars.
     return (
-      <View style={styles.screen}>
-        <Panel style={styles.panel}>
-          <Text style={styles.title}>Something went wrong</Text>
-          <Text style={styles.message}>{error.message}</Text>
-          <Button label="Back to Home" onPress={this.backToHome} />
-        </Panel>
-      </View>
+      <Screen>
+        <View style={styles.centre}>
+          <Panel style={styles.panel}>
+            <Text style={styles.title}>Something went wrong</Text>
+            <Text style={styles.message} numberOfLines={6}>
+              {error.message}
+            </Text>
+            <Button label="Back to Home" onPress={this.backToHome} />
+          </Panel>
+        </View>
+      </Screen>
     );
   }
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
+  centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   panel: {
     alignItems: 'center',
     padding: spacing.lg,

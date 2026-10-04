@@ -9,6 +9,7 @@ import {
   isEnabled,
   press,
   render as renderElement,
+  texts,
 } from '../testUtils';
 
 const TILES = [
@@ -60,6 +61,19 @@ describe('ResponseBar', () => {
     expect(
       button(renderer, 'response-challenge').props.accessibilityLabel,
     ).toBe('Challenge, doubt the Duke claim');
+  });
+
+  it('keeps the line under Challenge short enough for four tiles on a small phone', () => {
+    const stolen = play(three(), { type: 'steal', playerId: 'a', target: 'b' });
+    const { renderer, tiles } = render(stolen, 'b');
+    expect(tiles()).toHaveLength(4);
+    const shown = texts(renderer);
+    expect(shown).toContain('Doubt Captain');
+    expect(shown).not.toContain('Doubt the Captain');
+    // The longest character name still reads in full to a screen reader.
+    expect(
+      button(renderer, 'response-challenge').props.accessibilityLabel,
+    ).toBe('Challenge, doubt the Captain claim');
   });
 
   it('offers Pass and Block as Duke, but no Challenge, against Foreign Aid', () => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Dimensions, Share } from 'react-native';
+import { Alert, Dimensions, ScrollView, Share, StyleSheet } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import { OnlineDot } from '../../components/OnlineDot';
 import { Scoreboard } from '../../components/Scoreboard';
@@ -236,5 +236,35 @@ describe('LobbyScreen scoreboard and start', () => {
     };
     expect(direction(640, 360)).toBe('row');
     expect(direction(360, 640)).toBe('column');
+  });
+
+  it('lets the code and its buttons scroll in landscape, where they are nearly as tall as the screen', () => {
+    const side = (width: number, height: number) => {
+      jest
+        .spyOn(Dimensions, 'get')
+        .mockReturnValue({ width, height, scale: 1, fontScale: 1 });
+      return mount('host')
+        .root.findAllByType(ScrollView)
+        .filter(scroll => scroll.props.testID === 'lobby-side');
+    };
+    const [landscape] = side(640, 360);
+    // Centred while it fits; the scroll view itself is stretched to the row, so growing is safe.
+    expect(StyleSheet.flatten(landscape.props.contentContainerStyle)).toEqual({
+      flexGrow: 1,
+      justifyContent: 'center',
+    });
+    expect(StyleSheet.flatten(landscape.props.style)).toEqual({
+      flex: 1,
+      alignSelf: 'stretch',
+    });
+    expect(
+      landscape.findAll(
+        node =>
+          node.props.testID === 'start' &&
+          node.props.accessibilityRole === 'button',
+      ).length,
+    ).toBeGreaterThan(0);
+    // Portrait stacks the panel above the player list and needs no second scroll view.
+    expect(side(360, 640)).toHaveLength(0);
   });
 });

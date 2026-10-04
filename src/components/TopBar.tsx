@@ -26,21 +26,34 @@ function Stat({
   value,
   compact,
   bare = false,
+  gives = false,
 }: {
   label: string;
   value: string;
   compact: boolean;
   /** Value only; the label is still spoken. */
   bare?: boolean;
+  /** Gives up width when the bar is too narrow: its label is cut first, the value stays. */
+  gives?: boolean;
 }) {
   return (
     <View
-      style={[styles.stat, compact && styles.statCompact]}
+      style={[
+        styles.stat,
+        compact && styles.statCompact,
+        gives ? styles.statGives : styles.statKeeps,
+      ]}
       accessible
       accessibilityLabel={`${label} ${value}`}
+      testID={`stat-${label.toLowerCase()}`}
     >
       {!bare && (
-        <Text style={styles.statLabel} maxFontSizeMultiplier={DENSE_FONT_SCALE}>
+        <Text
+          style={[styles.statLabel, gives && styles.statLabelGives]}
+          numberOfLines={1}
+          ellipsizeMode="clip"
+          maxFontSizeMultiplier={DENSE_FONT_SCALE}
+        >
           {label.toUpperCase()}
         </Text>
       )}
@@ -100,7 +113,7 @@ function BarButton({
 /**
  * Turn number, deck count, join code, connection state, the rules and the way
  * out. One fixed-height row. The two buttons never shrink: when the bar is too
- * narrow it is the stats on the left that are clipped.
+ * narrow the Turn and Deck pills give way first, and the join code last.
  */
 export function TopBar({
   turn,
@@ -123,23 +136,26 @@ export function TopBar({
         )}
         {!warningOnly && (
           <>
-            <Stat label="Turn" value={String(turn)} compact={compact} />
-            <Stat label="Deck" value={String(deck)} compact={compact} />
+            <Stat label="Turn" value={String(turn)} compact={compact} gives />
+            <Stat label="Deck" value={String(deck)} compact={compact} gives />
             <Stat label="Code" value={code} compact={compact} bare={compact} />
           </>
         )}
-        <View style={[styles.status, warningOnly && styles.statusLeft]}>
-          {!connected && (
-            <Text
-              style={styles.offline}
-              numberOfLines={compact ? 2 : 1}
-              accessibilityLiveRegion="polite"
-              maxFontSizeMultiplier={DENSE_FONT_SCALE}
-            >
-              Reconnecting… actions paused
-            </Text>
-          )}
-        </View>
+        {/* A narrow bar has nothing to put here while connected, and no width to spare for an empty box. */}
+        {(!compact || !connected) && (
+          <View style={[styles.status, warningOnly && styles.statusLeft]}>
+            {!connected && (
+              <Text
+                style={styles.offline}
+                numberOfLines={compact ? 2 : 1}
+                accessibilityLiveRegion="polite"
+                maxFontSizeMultiplier={DENSE_FONT_SCALE}
+              >
+                Reconnecting… actions paused
+              </Text>
+            )}
+          </View>
+        )}
       </View>
       <BarButton
         label="Rules"
@@ -190,7 +206,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   statCompact: { marginRight: spacing.xs, paddingHorizontal: 6 },
+  // The info row has a definite width (what the two buttons leave). When the pills do not
+  // fit, Turn and Deck are the ones that narrow, so the join code is never the part cut off.
+  statGives: { flexShrink: 1, overflow: 'hidden' },
+  statKeeps: { flexShrink: 0 },
   statLabel: { ...typography.micro, color: colors.muted, marginRight: 5 },
+  statLabelGives: { flexShrink: 1 },
   statValue: { ...typography.label, color: colors.text },
   status: { flex: 1, alignItems: 'flex-end', paddingHorizontal: spacing.sm },
   statusLeft: { alignItems: 'flex-start', paddingLeft: 0 },

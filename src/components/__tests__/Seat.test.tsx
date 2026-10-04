@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { Card, Player } from '../../engine/types';
 import { CardBack } from '../CardBack';
 import { MiniCard } from '../MiniCard';
@@ -119,6 +120,42 @@ describe('Seat', () => {
     );
     expect(rendered(renderer)).toContain('TAP');
     expect(rendered(renderer)).not.toContain('TAP TO TARGET');
+  });
+
+  describe('room for the name while a target is being chosen', () => {
+    const parts = (width: number) => {
+      const renderer = render(
+        <Seat
+          player={player({ name: 'Αλεξανδρόπουλος1' })}
+          isTurn={false}
+          target={target()}
+          compact
+          width={width}
+        />,
+      );
+      const text = (children: string) =>
+        StyleSheet.flatten(
+          renderer.root.find(
+            node =>
+              typeof node.type === 'string' && node.props.children === children,
+          ).props.style,
+        );
+      return { name: text('Αλεξανδρόπουλος1'), tag: text('TAP') };
+    };
+
+    it('lets the name give way and never the tag', () => {
+      const { name, tag } = parts(108);
+      expect(name.flexShrink).toBe(1);
+      expect(tag.flexShrink).toBe(0);
+      expect(tag.marginLeft).toBeLessThan(4);
+    });
+
+    it('keeps the full-size name on a wide seat, which still gets the short tag', () => {
+      expect(parts(220).name.fontSize).toBe(14);
+      expect(parts(150).name.fontSize).toBe(14);
+      expect(parts(149).name.fontSize).toBe(12);
+      expect(parts(108).name.fontSize).toBe(12);
+    });
   });
 
   it('cannot be tapped while offline or busy', () => {

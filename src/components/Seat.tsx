@@ -2,19 +2,13 @@ import React from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { unrevealedCount } from '../engine/rules';
 import { Influence, Player } from '../engine/types';
-import {
-  colors,
-  DENSE_FONT_SCALE,
-  radius,
-  spacing,
-  typography,
-} from '../theme';
+import { colors, DENSE_FONT_SCALE, radius, typography } from '../theme';
 import { useFlip } from '../ui/motion';
 import { CardBack } from './CardBack';
 import { Coins } from './Coins';
 import { MiniCard } from './MiniCard';
 import { OnlineDot } from './OnlineDot';
-import { SEAT_HEIGHT } from './tableLayout';
+import { SEAT_HEIGHT, SMALL_SEAT_NAME_BELOW } from './tableLayout';
 
 export interface SeatTarget {
   /** The action being aimed, e.g. "Steal". */
@@ -26,7 +20,7 @@ export interface SeatTarget {
 interface Props {
   player: Player;
   isTurn: boolean;
-  /** Narrow seat: shorter tag text. */
+  /** Shorter tag text ("TAP"), and on a narrow seat a smaller name. */
   compact?: boolean;
   width?: number;
   /** Set only while the local player is choosing a target and this player is a legal one. */
@@ -73,6 +67,9 @@ export function Seat({
   const hidden = unrevealedCount(player);
   const lost = player.influence.filter(i => i.revealed).map(i => i.card);
   const out = hidden === 0;
+  // The short tag is used at every width; the smaller name only where the seat really is narrow.
+  const smallName =
+    compact && (width === undefined || width < SMALL_SEAT_NAME_BELOW);
 
   const summary = [
     player.name,
@@ -106,7 +103,7 @@ export function Seat({
       <View style={styles.header}>
         {online !== null && <OnlineDot online={online} />}
         <Text
-          style={[styles.name, compact && styles.nameCompact]}
+          style={[styles.name, smallName && styles.nameCompact]}
           numberOfLines={1}
           ellipsizeMode="tail"
           maxFontSizeMultiplier={DENSE_FONT_SCALE}
@@ -188,9 +185,12 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.7 },
   header: { flexDirection: 'row', alignItems: 'center' },
+  // The header row has a definite width (the seat's). The name takes what the dot and the
+  // tag leave and is the one that gives way (ellipsis); the tag keeps its full width.
   name: {
     ...typography.label,
     flex: 1,
+    flexShrink: 1,
     color: colors.text,
     fontSize: 14,
     lineHeight: 17,
@@ -199,7 +199,8 @@ const styles = StyleSheet.create({
   tag: {
     ...typography.micro,
     fontSize: 9,
-    marginLeft: spacing.xs,
+    flexShrink: 0,
+    marginLeft: 3,
     paddingHorizontal: 4,
     paddingVertical: 1,
     borderRadius: radius.sm,

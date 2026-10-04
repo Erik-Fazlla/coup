@@ -158,6 +158,52 @@ describe('Seat', () => {
     });
   });
 
+  describe('at the slim height of a full table', () => {
+    const parts = (height?: number) => {
+      const renderer = render(
+        <Seat
+          player={player()}
+          isTurn={false}
+          width={220}
+          height={height}
+          testID="seat"
+        />,
+      );
+      return {
+        frame: StyleSheet.flatten(
+          renderer.root.find(
+            node =>
+              typeof node.type === 'string' && node.props.testID === 'seat',
+          ).props.style,
+        ),
+        name: StyleSheet.flatten(
+          renderer.root.find(
+            node =>
+              typeof node.type === 'string' && node.props.children === 'OTHER',
+          ).props.style,
+        ),
+        backs: renderer.root.findAllByType(CardBack).length,
+      };
+    };
+
+    it('is 56 high with the full-size name by default', () => {
+      const { frame, name } = parts();
+      expect(frame.height).toBe(56);
+      expect(frame.paddingVertical).toBe(5);
+      expect(name.fontSize).toBe(14);
+    });
+
+    it('is 48 high with less padding and the smaller name, still showing both cards', () => {
+      const { frame, name, backs } = parts(48);
+      expect(frame.height).toBe(48);
+      expect(frame.paddingVertical).toBe(2);
+      expect(name.fontSize).toBe(12);
+      expect(backs).toBe(2);
+      // Border 2+2, padding 2+2, a 15 name line and the 24 cards.
+      expect(4 + 4 + name.lineHeight + 24).toBeLessThanOrEqual(48);
+    });
+  });
+
   it('cannot be tapped while offline or busy', () => {
     const chosen = target({ disabled: true });
     const renderer = render(

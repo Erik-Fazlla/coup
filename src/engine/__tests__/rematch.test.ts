@@ -195,6 +195,21 @@ describe('rematch', () => {
     ).toThrow('Too late: the game has moved on');
   });
 
+  it('sizes the deck for whoever is in the lobby when the next round starts', () => {
+    let lobby = rematch(finished(), 'a', identityRng);
+    ['d', 'e', 'f', 'g'].forEach(id => {
+      lobby = addPlayer(lobby, id, id.toUpperCase());
+    });
+    // Three players played round 1 with 15 cards; seven play round 2 with 20.
+    const second = startGame(lobby, 'a', identityRng);
+    expect(second.playerOrder).toHaveLength(7);
+    expect(second.deck).toHaveLength(20 - 14);
+
+    // And back down: with the seventh player gone, the round is dealt from 15 again.
+    const smaller = startGame(removePlayer(lobby, 'g'), 'a', identityRng);
+    expect(smaller.deck).toHaveLength(15 - 12);
+  });
+
   it('lets the next round be played and counts a second win', () => {
     const lobby = rematch(finished(), 'a', identityRng);
     const second = startGame(lobby, 'a', identityRng);

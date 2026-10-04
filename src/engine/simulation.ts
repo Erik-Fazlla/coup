@@ -1,5 +1,5 @@
 import { applyAction } from './actions';
-import { Rng } from './deck';
+import { deckSize, Rng } from './deck';
 import { addPlayer, newGame, startGame } from './lobby';
 import {
   availableActions,
@@ -19,9 +19,19 @@ import { ActionType, Game, GameAction, Phase, TargetedAction } from './types';
  * Lives outside `__tests__` only because Jest treats every file in there as a test suite.
  */
 
-export const TOTAL_CARDS = 15;
 export const MAX_ACTIONS = 5000;
-const NAMES = ['One', 'Two', 'Three', 'Four', 'Five', 'Six'];
+const NAMES = [
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+];
 
 /** Park–Miller generator: the same seed always produces the same game. */
 export function seeded(seed: number): Rng {
@@ -190,8 +200,9 @@ export function violation(before: Game, after: Game): string | null {
         unrevealedCount(after.players[pending.actor])
       : 0;
   const total = after.deck.length + inHands + drawnForExchange;
-  if (total !== TOTAL_CARDS) {
-    return `card count is ${total}, expected ${TOTAL_CARDS}`;
+  const expectedCards = deckSize(ids.length);
+  if (total !== expectedCards) {
+    return `card count is ${total}, expected ${expectedCards}`;
   }
 
   for (const id of ids) {
@@ -355,7 +366,7 @@ function waitKey(game: Game): string {
 }
 
 export interface SimulationOptions {
-  /** Number of players, 2 to 6. */
+  /** Number of players, 2 to 10. */
   players?: number;
   /** Chance that the host skips whoever the game is waiting on instead of them acting. */
   skipChance?: number;

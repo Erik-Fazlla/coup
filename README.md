@@ -1,6 +1,6 @@
 # Coup
 
-Multiplayer Coup card game for Android. React Native + Firebase Realtime Database. 2–6 players, each on their own phone, joined by a 5-character code.
+Multiplayer Coup card game for Android (an iPhone build is set up but untested, see [docs/ios-build.md](docs/ios-build.md)). React Native + Firebase Realtime Database. 2–10 players, each on their own phone, joined by a 5-character code.
 
 ## Requirements
 
@@ -116,7 +116,11 @@ No computer or cable needed. Send them the file `android/app/build/outputs/apk/r
 
 Updating later: send the new file and repeat steps 2–4. The app keeps its name and stats as long as the APK was built with the same signing key (see "Signing").
 
-Android 7.0 or newer is required. iPhones are not supported.
+Android 7.0 or newer is required.
+
+### iPhones
+
+An iPhone build is produced by GitHub Actions (`.github/workflows/build-ios.yml`) once an Apple Developer account (USD 99 per year) and three signing secrets are in place. It has never been built or run yet. Setup, install routes, cost and known gaps: [docs/ios-build.md](docs/ios-build.md).
 
 ## Run in development
 
@@ -136,10 +140,12 @@ npm run android
 
 1. Everyone enters a name on first launch.
 2. One player taps **Create Game** and shares the code.
-3. Others enter the code and tap **Join**. The host taps **Start Game** (2–6 players).
+3. Others enter the code and tap **Join**. The host taps **Start Game** (2–10 players).
 4. On your turn, choose an action. After a claim, every other player taps **Pass**, **Challenge** or **Block**; the game continues once everyone has answered.
 
 Full base-game rules are implemented: Income, Foreign Aid, Coup, Duke (Tax, blocks Foreign Aid), Assassin, Captain (Steal, blocks Steal), Ambassador (Exchange, blocks Steal), Contessa (blocks Assassination), challenges on actions and blocks, forced Coup at 10 coins.
+
+The deck has 3 of each character (15 cards) for 2–6 players and 4 of each (20 cards) for 7–10. With 10 players all 20 cards are dealt, so the deck starts empty: an Exchange then has nothing to draw until a card comes back to the deck.
 
 ## Sounds
 
@@ -150,7 +156,8 @@ The sound effects (your turn, a prompt to respond, coins, a lost card, a challen
 - No turn timer: if a player stops responding, the game waits for them. Reopening the app returns them to the game.
 - A player who taps **Quit** during a game stays in it as a silent player; the others will be waiting for their responses. They can rejoin with the same code.
 - A player who holds the claimed card always shows it when challenged (the official rules let them choose to lose a card instead).
-- Android only.
+- Tested on Android only. The iPhone build is unverified and has no sound, no app icon and no keep-screen-on (see [docs/ios-build.md](docs/ios-build.md)).
+- A 7–10 player table has only been checked by the automated tests, not on phones.
 
 ## Project layout
 
@@ -162,5 +169,6 @@ src/context     React contexts
 src/screens     Setup, Welcome, Home, Lobby, Game, Game Over
 src/components  Cards, seats, action and response controls
 sync            Emulator-based multiplayer test
-docs            Design spec and implementation plans
+docs            Design spec, implementation plans, iOS build setup
+.github         iOS build workflow
 ```

@@ -1,7 +1,7 @@
 import { buildDeck, Rng, shuffle } from './deck';
 import { Game, IllegalActionError, Player } from './types';
 
-export const MAX_PLAYERS = 6;
+export const MAX_PLAYERS = 10;
 export const MIN_PLAYERS = 2;
 export const MAX_NAME_LENGTH = 16;
 
@@ -155,7 +155,8 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
     throw new IllegalActionError(`Need at least ${MIN_PLAYERS} players`);
   }
   const next = clone(game);
-  const deck = shuffle(buildDeck(), rng);
+  // The deck is sized for whoever is in the lobby right now, so it can change between rounds.
+  const deck = shuffle(buildDeck(next.playerOrder.length), rng);
   next.playerOrder.forEach(id => {
     next.players[id].coins = 2;
     next.players[id].eliminatedAt = null;

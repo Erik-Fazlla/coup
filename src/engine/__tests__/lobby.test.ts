@@ -2,11 +2,12 @@ import {
   addPlayer,
   generateCode,
   MAX_NAME_LENGTH,
+  MAX_PLAYERS,
   newGame,
   removePlayer,
   startGame,
 } from '../lobby';
-import { Game, IllegalActionError } from '../types';
+import { CARDS, Game, IllegalActionError } from '../types';
 
 const identityRng = () => 0.999999;
 
@@ -124,8 +125,10 @@ describe('addPlayer', () => {
     expect(addPlayer(game, 'p2', 'P2')).toBe(game);
   });
 
-  it('rejects a seventh player', () => {
-    expect(() => addPlayer(lobby(6), 'p7', 'P7')).toThrow('Game is full');
+  it('takes up to ten players and rejects an eleventh', () => {
+    expect(MAX_PLAYERS).toBe(10);
+    expect(lobby(10).playerOrder).toHaveLength(10);
+    expect(() => addPlayer(lobby(10), 'p11', 'P11')).toThrow('Game is full');
   });
 
   it('rejects new players once started but lets existing players rejoin', () => {
@@ -178,6 +181,28 @@ describe('startGame', () => {
     ]);
     expect(game.deck).toHaveLength(9);
     expect(game.players.p3.coins).toBe(2);
+  });
+
+  it.each([
+    [2, 15],
+    [6, 15],
+    [7, 20],
+    [10, 20],
+  ])('deals %i players from a deck of %i cards', (players, cards) => {
+    const game = startGame(lobby(players), 'p1', identityRng);
+    const dealt = game.playerOrder.flatMap(id =>
+      game.players[id].influence.map(influence => influence.card),
+    );
+    expect(dealt).toHaveLength(2 * players);
+    expect(game.deck).toHaveLength(cards - 2 * players);
+    const all = [...dealt, ...game.deck];
+    CARDS.forEach(card =>
+      expect(all.filter(c => c === card)).toHaveLength(cards / CARDS.length),
+    );
+  });
+
+  it('leaves no deck at all with ten players', () => {
+    expect(startGame(lobby(10), 'p1', identityRng).deck).toEqual([]);
   });
 
   it('only lets the host start', () => {

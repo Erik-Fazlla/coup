@@ -7,12 +7,12 @@ import {
 } from '../simulation';
 import { Phase } from '../types';
 
-// `simulateGame` throws on the first broken rule after any action: 15 cards, no negative coins,
+// `simulateGame` throws on the first broken rule after any action: 15 cards (20 from 7 players), no negative coins,
 // nobody stuck, forced Coup, exactly one winner, eliminations and scores consistent, a clean
 // database round trip, a rejected legal move, or no winner. Inputs are deep-frozen, so a
 // mutation throws as well. Reaching an assertion means every game in the batch was clean.
 
-const PLAYER_COUNTS = [2, 3, 4, 5, 6];
+const PLAYER_COUNTS = [2, 3, 4, 5, 6, 7, 8, 9, 10];
 const SKIP_PHASES: Phase[] = [
   'action',
   'awaitingResponses',
@@ -37,7 +37,7 @@ function totalSkips(results: SimulationResult[], phase: Phase): number {
   return results.reduce((sum, result) => sum + (result.skips[phase] ?? 0), 0);
 }
 
-describe('seeded games with 2 to 6 players', () => {
+describe('seeded games with 2 to 10 players', () => {
   it('is reproducible for a given seed, with and without skips', () => {
     const plain = simulateGame(11, RECKLESS, { players: 4 });
     expect(simulateGame(11, RECKLESS, { players: 4 }).end).toEqual(plain.end);

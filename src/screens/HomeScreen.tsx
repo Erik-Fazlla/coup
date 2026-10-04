@@ -172,8 +172,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
+  // Three tiles fit a phone; on a narrow column or with large text they wrap instead of being cut off.
   stats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: spacing.sm,
     marginTop: spacing.sm,
     marginBottom: spacing.sm,

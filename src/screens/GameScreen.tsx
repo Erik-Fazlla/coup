@@ -488,7 +488,13 @@ const styles = StyleSheet.create({
   },
   you: { ...typography.micro, color: colors.muted },
   youActive: { color: colors.primary },
-  handCards: { flex: 1, flexDirection: 'row', gap: TILE_GAP },
+  // Cards stop growing at their maximum width; on a wide hand they sit in the middle, not on the left.
+  handCards: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: TILE_GAP,
+  },
   controlsBeside: { flex: 1, marginLeft: spacing.sm },
   outPanel: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   outTitle: { ...typography.heading, color: colors.text },

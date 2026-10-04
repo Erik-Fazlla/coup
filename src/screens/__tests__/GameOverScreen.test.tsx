@@ -1,4 +1,5 @@
 import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
   findButton,
@@ -107,6 +108,16 @@ beforeEach(() => {
 });
 
 describe('GameOverScreen summary', () => {
+  it('keeps the summary as tall as its lines instead of stretching its panel', () => {
+    const scroll = mount('b')
+      .root.findAllByType(ScrollView)
+      .find(node => node.props.testID === 'summary-scroll')!;
+    expect(StyleSheet.flatten(scroll.props.style)).toEqual({
+      flexGrow: 0,
+      flexShrink: 1,
+    });
+  });
+
   it('announces the winner by name, or as you', () => {
     expect(texts(mount('b'))).toContain('A wins');
     expect(texts(mount('a'))).toContain('You win!');

@@ -1,4 +1,5 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act } from 'react-test-renderer';
 import { Card, Player } from '../../engine/types';
 import { colors } from '../../theme';
@@ -372,6 +373,26 @@ describe('TopBar', () => {
     );
     // No room for the brand on a narrow bar.
     expect(texts(renderer)).not.toContain('COUP');
+  });
+
+  it('gives up Turn and Deck before the join code when the bar is too narrow', () => {
+    [false, true].forEach(compact => {
+      const renderer = bar(true, jest.fn(), jest.fn(), compact);
+      const pill = (name: string) =>
+        StyleSheet.flatten(
+          renderer.root.find(
+            node =>
+              typeof node.type === 'string' &&
+              node.props.testID === `stat-${name}`,
+          ).props.style,
+        );
+      expect(pill('turn').flexShrink).toBe(1);
+      expect(pill('deck').flexShrink).toBe(1);
+      expect(pill('code').flexShrink).toBe(0);
+      // Rules and Leave are outside the part that shrinks.
+      expect(findButton(renderer, 'rules')).toBeDefined();
+      expect(findButton(renderer, 'leave')).toBeDefined();
+    });
   });
 
   it('shows the connection warning in place of the stats on a narrow bar', () => {

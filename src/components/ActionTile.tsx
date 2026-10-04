@@ -126,5 +126,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  detailLarge: { fontSize: 12, lineHeight: 16 },
+  detailLarge: { fontSize: 11, lineHeight: 16 },
 });

@@ -61,7 +61,8 @@ export function ResponseBar({
         testID="response-challenge"
         size="large"
         label="Challenge"
-        detail={doubted ? `Doubt the ${doubted}` : 'Call the bluff'}
+        // Kept short: with four tiles on a small landscape phone a longer line is cut off.
+        detail={doubted ? `Doubt ${doubted}` : 'Call the bluff'}
         accessibilityLabel={
           doubted
             ? `Challenge, doubt the ${doubted} claim`

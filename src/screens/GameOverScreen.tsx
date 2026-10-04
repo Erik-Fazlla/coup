@@ -99,7 +99,11 @@ export function GameOverScreen() {
         </Panel>
 
         <Panel style={[styles.details, !portrait && styles.beside]}>
-          <ScrollView contentContainerStyle={styles.detailsContent}>
+          <ScrollView
+            style={styles.detailsScroll}
+            contentContainerStyle={styles.detailsContent}
+            testID="summary-scroll"
+          >
             <Text style={styles.heading} accessibilityRole="header">
               HOW IT WENT
             </Text>
@@ -178,6 +182,9 @@ const styles = StyleSheet.create({
   },
   // The summary is the part that scrolls when the screen is short; the buttons never do.
   details: { flexShrink: 1, maxHeight: '100%' },
+  // A scroll view grows by default, which would stretch the panel to the full height of the
+  // screen around a few lines. As tall as its content, and shrinking (scrolling) when short of room.
+  detailsScroll: { flexGrow: 0, flexShrink: 1 },
   detailsContent: { paddingBottom: spacing.xs },
   heading: {
     ...typography.micro,

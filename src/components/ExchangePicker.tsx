@@ -98,7 +98,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: spacing.xs,
   },
-  row: { flex: 1, flexDirection: 'row', gap: 6 },
+  // Cards stop growing at their maximum width; what is left goes either side of them.
+  row: { flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 6 },
   confirm: {
     minHeight: TOUCH_MIN,
     borderRadius: radius.md,

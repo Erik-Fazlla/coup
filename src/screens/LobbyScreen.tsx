@@ -63,51 +63,68 @@ export function LobbyScreen() {
       ],
     );
 
+  const codePanel = (
+    <Panel style={styles.column}>
+      <Text style={styles.label}>
+        {game.round > 1 ? `JOIN CODE · ROUND ${game.round}` : 'JOIN CODE'}
+      </Text>
+      <Text
+        style={styles.code}
+        selectable
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        maxFontSizeMultiplier={DENSE_FONT_SCALE}
+      >
+        {game.code}
+      </Text>
+      <Button
+        label="Share code"
+        variant="secondary"
+        accessibilityLabel={`Share join code ${game.code}`}
+        onPress={() => shareCode(game.code)}
+        testID="share"
+      />
+      {isHost ? (
+        <Button
+          label="Start Game"
+          disabled={disabled || count < MIN_PLAYERS}
+          onPress={startGame}
+          testID="start"
+        />
+      ) : (
+        <Text style={styles.waiting}>Waiting for the host to start…</Text>
+      )}
+      <Button
+        label={isHost ? 'Cancel Game' : 'Leave'}
+        variant="secondary"
+        onPress={leave}
+      />
+      {error && (
+        <Text style={styles.error} accessibilityLiveRegion="polite">
+          {error}
+        </Text>
+      )}
+    </Panel>
+  );
+
   return (
     <Screen>
       <ConnectionBanner connected={connected} />
       <View style={portrait ? styles.stack : styles.columns}>
-        <Panel style={[styles.column, !portrait && styles.columnBeside]}>
-          <Text style={styles.label}>
-            {game.round > 1 ? `JOIN CODE · ROUND ${game.round}` : 'JOIN CODE'}
-          </Text>
-          <Text
-            style={styles.code}
-            selectable
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            maxFontSizeMultiplier={DENSE_FONT_SCALE}
+        {portrait ? (
+          codePanel
+        ) : (
+          // On a short landscape phone the panel is nearly as tall as the screen. Centred while
+          // it fits and scrolling when it does not, so it is never cut off top and bottom.
+          // `flexGrow: 1` on the content is safe: the scroll view is stretched to the row's height.
+          <ScrollView
+            style={styles.side}
+            contentContainerStyle={styles.sideContent}
+            testID="lobby-side"
           >
-            {game.code}
-          </Text>
-          <Button
-            label="Share code"
-            variant="secondary"
-            accessibilityLabel={`Share join code ${game.code}`}
-            onPress={() => shareCode(game.code)}
-            testID="share"
-          />
-          {isHost ? (
-            <Button
-              label="Start Game"
-              disabled={disabled || count < MIN_PLAYERS}
-              onPress={startGame}
-              testID="start"
-            />
-          ) : (
-            <Text style={styles.waiting}>Waiting for the host to start…</Text>
-          )}
-          <Button
-            label={isHost ? 'Cancel Game' : 'Leave'}
-            variant="secondary"
-            onPress={leave}
-          />
-          {error && (
-            <Text style={styles.error} accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          )}
-        </Panel>
+            {codePanel}
+          </ScrollView>
+        )}
 
         <ScrollView
           style={styles.list}
@@ -199,7 +216,8 @@ const styles = StyleSheet.create({
   },
   stack: { flex: 1, gap: spacing.md },
   column: { alignItems: 'center' },
-  columnBeside: { flex: 1 },
+  side: { flex: 1, alignSelf: 'stretch' },
+  sideContent: { flexGrow: 1, justifyContent: 'center' },
   label: { ...typography.micro, color: colors.muted, marginBottom: spacing.xs },
   code: {
     color: colors.coin,

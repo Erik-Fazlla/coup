@@ -1,0 +1,242 @@
+name: Build iOS
+
+# Builds a signed .ipa and attaches it to a GitHub Release, next to the Android APK.
+# Setup (Apple Developer account, certificate, profile, the three secrets): docs/ios-build.md
+#
+# Until the secrets exist, the workflow passes without starting a macOS runner.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'android/**'
+      - 'sync/**'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the .ipa to (empty = latest release)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check signing secrets
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.secrets.outputs.ready }}
+    steps:
+      - id: secrets
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          if [ -n "$CERTIFICATE" ] && [ -n "$CERTIFICATE_PASSWORD" ] && [ -n "$PROFILE" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=iOS build skipped::Signing secrets are not set. See docs/ios-build.md."
+          fi
+
+  build:
+    name: Build and sign the .ipa
+    needs: check
+    if: needs.check.outputs.ready == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      ARCHIVE_PATH: ${{ github.workspace }}/build/Coup.xcarchive
+      EXPORT_PATH: ${{ github.workspace }}/build/ipa
+      IPA_NAME: coup-ios.ipa
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('package-lock.json', 'ios/Podfile') }}
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: bundle exec pod install
+
+      - name: Install the certificate and the provisioning profile
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          CERTIFICATE_PATH="$RUNNER_TEMP/certificate.p12"
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          # The keychain lives only for this job; its password never leaves the runner.
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+
+          echo -n "$CERTIFICATE" | base64 --decode -o "$CERTIFICATE_PATH"
+          echo -n "$PROFILE" | base64 --decode -o "$PROFILE_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          read_profile() { /usr/libexec/PlistBuddy -c "Print :$1" "$PROFILE_PLIST"; }
+          PROFILE_UUID="$(read_profile UUID)"
+          PROFILE_NAME="$(read_profile Name)"
+          TEAM_ID="$(read_profile TeamIdentifier:0)"
+          APP_ID="$(read_profile Entitlements:application-identifier)"
+          BUNDLE_ID="${APP_ID#"$TEAM_ID".}"
+          if [ "$BUNDLE_ID" = "*" ] || [ -z "$BUNDLE_ID" ]; then
+            echo "::error::The provisioning profile must be for one explicit App ID, not a wildcard."
+            exit 1
+          fi
+          # Registered devices in the profile mean ad hoc (install from the file); none means App Store / TestFlight.
+          if read_profile ProvisionedDevices > /dev/null 2>&1; then
+            EXPORT_METHOD=release-testing
+          else
+            EXPORT_METHOD=app-store-connect
+          fi
+          SIGN_IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | sed -n 's/.*"\(.*\)".*/\1/p' | head -n 1)"
+          if [ -z "$SIGN_IDENTITY" ]; then
+            echo "::error::No signing identity in the certificate. Export the certificate together with its private key."
+            exit 1
+          fi
+
+          # Older and newer Xcode versions look in different folders.
+          for DIR in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$DIR"
+            cp "$PROFILE_PATH" "$DIR/$PROFILE_UUID.mobileprovision"
+          done
+
+          {
+            echo "IOS_TEAM_ID=$TEAM_ID"
+            echo "IOS_PROFILE_NAME=$PROFILE_NAME"
+            echo "IOS_BUNDLE_ID=$BUNDLE_ID"
+            echo "IOS_SIGN_IDENTITY=$SIGN_IDENTITY"
+            echo "IOS_EXPORT_METHOD=$EXPORT_METHOD"
+            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH"
+          } >> "$GITHUB_ENV"
+          echo "Signing $BUNDLE_ID for $EXPORT_METHOD"
+
+      - name: Apply signing to the app target
+        env:
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+        run: bundle exec ruby scripts/ios-signing.rb
+
+      - name: Archive
+        run: |
+          LOG="$RUNNER_TEMP/xcodebuild-archive.log"
+          if ! xcodebuild archive \
+            -workspace ios/Coup.xcworkspace \
+            -scheme Coup \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$ARCHIVE_PATH" > "$LOG" 2>&1; then
+            # The full log is very long; the errors and the end of it say what went wrong.
+            grep -E "error:|Signing for|Provisioning profile" "$LOG" | sort -u | head -n 60 || true
+            tail -n 60 "$LOG"
+            exit 1
+          fi
+          tail -n 5 "$LOG"
+
+      - name: Export the .ipa
+        run: |
+          set -euo pipefail
+          OPTIONS="$RUNNER_TEMP/ExportOptions.plist"
+          cat > "$OPTIONS" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>$IOS_EXPORT_METHOD</string>
+            <key>teamID</key>
+            <string>$IOS_TEAM_ID</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>$IOS_BUNDLE_ID</key>
+              <string>$IOS_PROFILE_NAME</string>
+            </dict>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$OPTIONS"
+          mv "$EXPORT_PATH"/*.ipa "$EXPORT_PATH/$IPA_NAME"
+          ls -l "$EXPORT_PATH"
+
+      - name: Keep the .ipa with this run
+        uses: actions/upload-artifact@v4
+        with:
+          name: coup-ios
+          path: ${{ env.EXPORT_PATH }}/${{ env.IPA_NAME }}
+          retention-days: 14
+
+      - name: Keep the build log when the build fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: ${{ runner.temp }}/xcodebuild-archive.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Attach the .ipa to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          TAG="${EVENT_TAG:-${INPUT_TAG:-}}"
+          if [ -z "$TAG" ]; then
+            # A push to main: the newest release gets a fresh build of main.
+            TAG="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::notice::No release to attach to. The .ipa is in this run's artifacts."
+            exit 0
+          fi
+          gh release upload "$TAG" "$EXPORT_PATH/$IPA_NAME" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Attached $IPA_NAME to release $TAG"
+
+      - name: Remove the signing material
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" 2> /dev/null || true
+          rm -f "$RUNNER_TEMP/certificate.p12" "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist"
+          rm -rf "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"

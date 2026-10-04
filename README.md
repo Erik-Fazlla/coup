@@ -1,6 +1,6 @@
 # Coup
 
-Multiplayer Coup card game for Android (an iPhone build is set up but untested, see [docs/ios-build.md](docs/ios-build.md)). React Native + Firebase Realtime Database. 2–10 players, each on their own phone, joined by a 5-character code.
+Multiplayer Coup card game for Android. React Native + Firebase Realtime Database. 2–10 players, each on their own phone, joined by a 5-character code.
 
 ## Requirements
 
@@ -116,11 +116,7 @@ No computer or cable needed. Send them the file `android/app/build/outputs/apk/r
 
 Updating later: send the new file and repeat steps 2–4. The app keeps its name and stats as long as the APK was built with the same signing key (see "Signing").
 
-Android 7.0 or newer is required.
-
-### iPhones
-
-An iPhone build is produced by GitHub Actions (`.github/workflows/build-ios.yml`) once an Apple Developer account (USD 99 per year) and three signing secrets are in place. It has never been built or run yet. Setup, install routes, cost and known gaps: [docs/ios-build.md](docs/ios-build.md).
+Android 7.0 or newer is required. iPhones are not supported.
 
 ## Run in development
 
@@ -156,7 +152,7 @@ The sound effects (your turn, a prompt to respond, coins, a lost card, a challen
 - No turn timer: if a player stops responding, the game waits for them. Reopening the app returns them to the game.
 - A player who taps **Quit** during a game stays in it as a silent player; the others will be waiting for their responses. They can rejoin with the same code.
 - A player who holds the claimed card always shows it when challenged (the official rules let them choose to lose a card instead).
-- Tested on Android only. The iPhone build is unverified and has no sound, no app icon and no keep-screen-on (see [docs/ios-build.md](docs/ios-build.md)).
+- Android only.
 - A 7–10 player table has only been checked by the automated tests, not on phones.
 
 ## Project layout
@@ -169,6 +165,5 @@ src/context     React contexts
 src/screens     Setup, Welcome, Home, Lobby, Game, Game Over
 src/components  Cards, seats, action and response controls
 sync            Emulator-based multiplayer test
-docs            Design spec, implementation plans, iOS build setup
-.github         iOS build workflow
+docs            Design spec and implementation plans
 ```

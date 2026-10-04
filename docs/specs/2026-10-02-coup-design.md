@@ -164,10 +164,10 @@ There is no authentication, so database rules must allow public read and write o
 
 AI opponents, chat, animations, iOS build, spectators, turn timers, expansion cards, authentication.
 
-## Amendment 2026-10-04: 7–10 players and an iOS build
+## Amendment 2026-10-04: 7–10 players
 
 - `MAX_PLAYERS` is 10. `buildDeck(playerCount)` gives 3 of each character for 2–6 players and 4 of each for 7–10 (`LARGE_GAME_FROM = 7`). The deck is built in `startGame` from the number of players in the lobby at that moment, so it can differ between rounds of the same lobby.
 - With 10 players all 20 cards are dealt and the deck starts empty. An Exchange then offers only the player's own cards; a proven card is shuffled into the deck and drawn back from it. The engine needed no change for this. The published Coup expansion uses 5 of each for 9–10 players; this app uses 4 as requested. Changing it is one line in `copiesPerCharacter`.
 - Table layout: with 6 or more opponents the minimum seat width drops from 108 to 100 so that nine seats fit in two rows on a 640x360 phone in landscape. When the regular 56-high seats would leave the banner less than one line, seats become 48 high (`SLIM_SEAT_HEIGHT`). In portrait nine opponents take three rows of three; that fits down to a table height of about 540.
 - The seeded simulation and its invariants run for 2 to 10 players; the card-count invariant uses `deckSize(playerCount)`.
-- iOS build: no longer out of scope as a build target. `.github/workflows/build-ios.yml` builds and signs an `.ipa` on a macOS runner and attaches it to the GitHub Release. Signing material lives only in GitHub Secrets. The iOS app itself is unverified. Details in `docs/ios-build.md`.
+- An iOS build workflow was added and removed again the same day (never run; needs a paid Apple Developer account). iOS stays out of scope.

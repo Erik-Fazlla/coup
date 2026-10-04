@@ -91,7 +91,8 @@ describe('tableLayout', () => {
     const layout = tableLayout(868, 396, 2);
     expect(layout.seatRows).toBe(1);
     expect(layout.seatWidth).toBe(220);
-    expect(layout.compactSeats).toBe(false);
+    // Even the widest seat uses the short "TAP" tag, so the name keeps its room.
+    expect(layout.compactSeats).toBe(true);
     expect(layout.bottomHeight).toBeGreaterThan(128);
     expect(layout.bottomHeight).toBeLessThanOrEqual(170);
   });

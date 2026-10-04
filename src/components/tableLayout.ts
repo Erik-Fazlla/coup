@@ -18,7 +18,14 @@ export const TILE_GAP = 6;
 
 const SEAT_MIN_WIDTH = 108;
 const SEAT_MAX_WIDTH = 220;
-const COMPACT_SEAT_BELOW = 150;
+/**
+ * Above the widest seat, so the short "TAP" tag is the one always used: the long
+ * "TAP TO TARGET" takes about 92 of a seat's width and cut names down to a few
+ * letters at the very moment the player has to tell opponents apart.
+ */
+const COMPACT_SEAT_BELOW = 230;
+/** Seats narrower than this also get the smaller name size. */
+export const SMALL_SEAT_NAME_BELOW = 150;
 const BOTTOM_PREFERRED_MIN = 128;
 const BOTTOM_MAX = 170;
 const BOTTOM_HARD_MIN = 104;
@@ -43,7 +50,7 @@ export interface TableLayout {
   seatsPerRow: number;
   seatRows: number;
   seatWidth: number;
-  /** Seats are narrow: use the short "tap" tag instead of "tap to target". */
+  /** Use the short "tap" tag instead of "tap to target". True at every seat width the table produces. */
   compactSeats: boolean;
   /**
    * Height of everything below the banner. Landscape: the one row holding the

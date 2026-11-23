@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Video, { ResizeMode, VideoRef, ViewType } from 'react-native-video';
+import Video, { ResizeMode, VideoRef } from 'react-native-video';
 import { useProfile } from '../context/ProfileContext';
 import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { READING_FONT_SCALE, spacing } from '../theme';
@@ -36,7 +36,7 @@ const FORM_STARTS_AT = 0.45;
 const FORM_DELAY_MS = 900;
 const FORM_FADE_MS = 700;
 /** If the intro never starts (no decoder, say), the form appears anyway after this long. */
-const FORM_FALLBACK_MS = 2500;
+const FORM_FALLBACK_MS = 4000;
 const FORM_FADE_OUT_MS = 180;
 /** The outro is about 3.7 s; past this the next screen opens whatever the video is doing. */
 export const OUTRO_TIMEOUT_MS = 6000;
@@ -88,10 +88,12 @@ export function WelcomeScreen({ onLeaving }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   /** The player tapped Continue: the outro plays (or the name is being saved). */
   const [leaving, setLeaving] = useState(false);
-  /** The intro reached its end: its last frame is shown as a still picture from now on. */
+  /** The intro reached its end (or was cut short): its last frame is shown as a still picture. */
   const [introEnded, setIntroEnded] = useState(false);
-  /** The still is on screen, so the intro's player can be let go. */
+  /** The still is on screen, so the intro's player is let go and the outro's is loaded. */
   const [introReleased, setIntroReleased] = useState(false);
+  /** The outro's first frame is drawn (behind the still), so it can take over at once. */
+  const [outroDisplayed, setOutroDisplayed] = useState(false);
   const [outroFailed, setOutroFailed] = useState(false);
 
   const form = useRef(new Animated.Value(0)).current;
@@ -192,6 +194,8 @@ export function WelcomeScreen({ onLeaving }: Props) {
     }
     setSaveError(null);
     setLeaving(true);
+    // Tapped before the intro ended: jump to its last frame, which the outro starts from.
+    setIntroEnded(true);
     Keyboard.dismiss();
     if (outroFailed) {
       return finish(false);
@@ -248,13 +252,46 @@ export function WelcomeScreen({ onLeaving }: Props) {
     <View style={styles.screen} onLayout={onLayout}>
       <StatusBar hidden />
 
+      {/*
+        Android draws each video on its own surface, which cannot be made see-through
+        (react-native-video 6.19 ignores `viewType`), so only one player is shown at a
+        time and the still picture, an ordinary view, covers the hand-over:
+          intro plays -> intro ends -> still of its last frame on top, intro let go,
+          outro loaded paused behind the still -> Continue -> still removed, outro plays.
+      */}
+      {introReleased && !outroFailed && (
+        <Video
+          testID="outro-video"
+          ref={outro}
+          source={OUTRO}
+          style={picture}
+          resizeMode={ResizeMode.CONTAIN}
+          muted
+          repeat={false}
+          controls={false}
+          paused={!leaving}
+          disableFocus
+          hideShutterView
+          shutterColor="transparent"
+          playInBackground={false}
+          onReadyForDisplay={() => setOutroDisplayed(true)}
+          onEnd={() => finish(true)}
+          onError={() => {
+            setOutroFailed(true);
+            if (leaving) {
+              finish(false);
+            }
+          }}
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+        />
+      )}
       {!introReleased && (
         <Video
           testID="intro-video"
           source={INTRO}
           style={picture}
           resizeMode={ResizeMode.CONTAIN}
-          viewType={ViewType.TEXTURE}
           muted
           repeat={false}
           controls={false}
@@ -273,43 +310,15 @@ export function WelcomeScreen({ onLeaving }: Props) {
           importantForAccessibility="no-hide-descendants"
         />
       )}
-      {introEnded && (
+      {introEnded && !(leaving && outroDisplayed) && (
         <Image
+          testID="intro-still"
           source={INTRO_LAST_FRAME}
           style={picture}
           resizeMode="contain"
           fadeDuration={0}
           onLoadEnd={() => setIntroReleased(true)}
           accessible={false}
-        />
-      )}
-
-      {/* Loaded (paused, hidden) from the start, so it begins the instant Continue is tapped. */}
-      {!outroFailed && (
-        <Video
-          testID="outro-video"
-          ref={outro}
-          source={OUTRO}
-          style={[picture, leaving ? styles.shown : styles.hidden]}
-          resizeMode={ResizeMode.CONTAIN}
-          viewType={ViewType.TEXTURE}
-          muted
-          repeat={false}
-          controls={false}
-          paused={!leaving}
-          disableFocus
-          hideShutterView
-          shutterColor="transparent"
-          playInBackground={false}
-          onEnd={() => finish(true)}
-          onError={() => {
-            setOutroFailed(true);
-            if (leaving) {
-              finish(false);
-            }
-          }}
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
         />
       )}
 
@@ -425,8 +434,6 @@ export function WelcomeScreen({ onLeaving }: Props) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000000' },
   column: { position: 'absolute' },
-  shown: { opacity: 1 },
-  hidden: { opacity: 0 },
   scroll: { flex: 1 },
   content: {
     flexGrow: 1,

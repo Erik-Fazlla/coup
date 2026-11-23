@@ -65,6 +65,22 @@ const typeAndContinue = async (renderer: ReactTestRenderer, name: string) => {
     continueButton(renderer).props.onPress();
   });
 };
+const still = (renderer: ReactTestRenderer) =>
+  renderer.root.findAll(
+    node =>
+      node.props.testID === 'intro-still' && typeof node.type !== 'string',
+  );
+/** The intro plays to its end and its still picture finishes loading. */
+const endIntro = (renderer: ReactTestRenderer) => {
+  act(() => {
+    video(renderer, 'intro-video').props.onEnd();
+  });
+  act(() => {
+    still(renderer)[0].props.onLoadEnd();
+  });
+};
+const videosShown = (renderer: ReactTestRenderer) =>
+  ['intro-video', 'outro-video'].filter(id => hasVideo(renderer, id));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -81,15 +97,29 @@ afterEach(() => {
 });
 
 describe('WelcomeScreen', () => {
+  it('plays only the intro at first, and never two videos at once', () => {
+    const renderer = render(<WelcomeScreen />);
+    expect(videosShown(renderer)).toEqual(['intro-video']);
+    expect(still(renderer)).toHaveLength(0);
+    endIntro(renderer);
+    // The intro is let go; the outro is loaded paused, behind the still.
+    expect(videosShown(renderer)).toEqual(['outro-video']);
+    expect(video(renderer, 'outro-video').props.paused).toBe(true);
+    expect(still(renderer)).toHaveLength(1);
+  });
+
   it('plays the outro on Continue and saves the trimmed name when it ends', async () => {
     const onLeaving = jest.fn();
     const renderer = render(<WelcomeScreen onLeaving={onLeaving} />);
-    expect(video(renderer, 'outro-video').props.paused).toBe(true);
+    endIntro(renderer);
+    act(() => {
+      video(renderer, 'outro-video').props.onReadyForDisplay();
+    });
 
     await typeAndContinue(renderer, '  Erik ');
-    const outro = video(renderer, 'outro-video');
-    expect(outro.props.paused).toBe(false);
-    expect(StyleSheet.flatten(outro.props.style).opacity).toBe(1);
+    expect(video(renderer, 'outro-video').props.paused).toBe(false);
+    // The still steps aside the moment Continue is tapped.
+    expect(still(renderer)).toHaveLength(0);
     expect(field(renderer).props.editable).toBe(false);
     expect(continueButton(renderer).props.disabled).toBe(true);
     expect(mockSetName).not.toHaveBeenCalled();
@@ -102,9 +132,28 @@ describe('WelcomeScreen', () => {
     expect(mockSetName).toHaveBeenCalledWith('Erik');
   });
 
+  it('cuts the intro short when Continue comes first, covering the switch with the still', async () => {
+    const renderer = render(<WelcomeScreen />);
+    await typeAndContinue(renderer, 'Erik');
+    expect(still(renderer)).toHaveLength(1);
+    expect(video(renderer, 'intro-video').props.paused).toBe(true);
+    act(() => {
+      still(renderer)[0].props.onLoadEnd();
+    });
+    expect(videosShown(renderer)).toEqual(['outro-video']);
+    expect(video(renderer, 'outro-video').props.paused).toBe(false);
+    // Until its first frame is drawn, the still stays in front.
+    expect(still(renderer)).toHaveLength(1);
+    act(() => {
+      video(renderer, 'outro-video').props.onReadyForDisplay();
+    });
+    expect(still(renderer)).toHaveLength(0);
+  });
+
   it('opens the next screen after 6 seconds if the outro never ends', async () => {
     const onLeaving = jest.fn();
     const renderer = render(<WelcomeScreen onLeaving={onLeaving} />);
+    endIntro(renderer);
     await typeAndContinue(renderer, 'Erik');
     await act(async () => {
       jest.advanceTimersByTime(OUTRO_TIMEOUT_MS);
@@ -115,6 +164,7 @@ describe('WelcomeScreen', () => {
 
   it('skips the outro when it fails to play', async () => {
     const renderer = render(<WelcomeScreen />);
+    endIntro(renderer);
     await typeAndContinue(renderer, 'Erik');
     await act(async () => {
       video(renderer, 'outro-video').props.onError({ error: {} });
@@ -124,6 +174,7 @@ describe('WelcomeScreen', () => {
 
   it('goes straight on when the outro could not even load', async () => {
     const renderer = render(<WelcomeScreen />);
+    endIntro(renderer);
     await act(async () => {
       video(renderer, 'outro-video').props.onError({ error: {} });
     });
@@ -141,6 +192,7 @@ describe('WelcomeScreen', () => {
         return { remove: jest.fn() } as never;
       });
     const renderer = render(<WelcomeScreen />);
+    endIntro(renderer);
     await typeAndContinue(renderer, 'Erik');
     await act(async () => {
       listeners.forEach(listener => listener('background'));
@@ -160,6 +212,7 @@ describe('WelcomeScreen', () => {
       intro.props.onEnd();
     });
     expect(video(renderer, 'intro-video').props.paused).toBe(true);
+    expect(still(renderer)).toHaveLength(1);
   });
 
   it('does not continue without a name, and says why saving failed', async () => {
@@ -171,6 +224,7 @@ describe('WelcomeScreen', () => {
     expect(continueButton(renderer).props.disabled).toBe(true);
 
     mockSetName.mockRejectedValue(new Error('storage broken'));
+    endIntro(renderer);
     await typeAndContinue(renderer, 'Erik');
     await act(async () => {
       video(renderer, 'outro-video').props.onEnd();
@@ -178,7 +232,8 @@ describe('WelcomeScreen', () => {
     expect(texts(renderer)).toContain(
       'Could not save your name on this device. Try again.',
     );
-    // Back on the form, ready to try again.
+    // Back on the form, over the still, ready to try again.
+    expect(still(renderer)).toHaveLength(1);
     expect(field(renderer).props.editable).toBe(true);
     expect(continueButton(renderer).props.disabled).toBe(false);
   });

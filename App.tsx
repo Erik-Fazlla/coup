@@ -1,8 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button } from './src/components/Button';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { FlashFade } from './src/components/FlashFade';
 import { Panel } from './src/components/Panel';
 import { Screen } from './src/components/Screen';
 import { GameProvider, useGame } from './src/context/GameContext';
@@ -16,7 +17,7 @@ import { LobbyScreen } from './src/screens/LobbyScreen';
 import { RemovedScreen } from './src/screens/RemovedScreen';
 import { routeFor } from './src/screens/route';
 import { SetupScreen } from './src/screens/SetupScreen';
-import { WelcomeScreen } from './src/screens/WelcomeScreen';
+import { OUTRO_FLASH_COLOR, WelcomeScreen } from './src/screens/WelcomeScreen';
 import { colors, spacing, typography } from './src/theme';
 import { watchReduceMotion } from './src/ui/motion';
 
@@ -95,17 +96,24 @@ function Fallback({
 
 function ProfileRouter() {
   const { loading, profile } = useProfile();
+  // Set when the name screen's outro ended on its bright flash: the next screen fades in from it.
+  const [flash, setFlash] = useState(false);
 
   if (loading) {
     return <Screen>{null}</Screen>;
   }
   if (!profile) {
-    return <WelcomeScreen />;
+    return <WelcomeScreen onLeaving={setFlash} />;
   }
   return (
-    <GameProvider>
-      <GameRouter />
-    </GameProvider>
+    <View style={styles.fill}>
+      <GameProvider>
+        <GameRouter />
+      </GameProvider>
+      {flash && (
+        <FlashFade color={OUTRO_FLASH_COLOR} onDone={() => setFlash(false)} />
+      )}
+    </View>
   );
 }
 
@@ -133,6 +141,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  fill: { flex: 1 },
   centre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   panel: { alignItems: 'center', padding: spacing.lg, maxWidth: 440 },
   message: {

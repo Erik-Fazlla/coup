@@ -1,8 +1,13 @@
 import React from 'react';
-import { ScrollView, StyleSheet, TextInput } from 'react-native';
+import { AppState, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import { fakeKeyboard, render, texts } from '../../components/testUtils';
-import { WelcomeScreen } from '../WelcomeScreen';
+import { MAX_NAME_LENGTH } from '../../engine/lobby';
+import {
+  containedRect,
+  OUTRO_TIMEOUT_MS,
+  WelcomeScreen,
+} from '../WelcomeScreen';
 
 const mockSetName = jest.fn();
 let mockStartupError: string | null = null;
@@ -13,6 +18,21 @@ jest.mock('../../context/ProfileContext', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
+// The real player is native; a plain view keeps its props for the tests to read and call.
+jest.mock('react-native-video', () => {
+  const mockReact = require('react');
+  const { View } = require('react-native');
+  const MockVideo = mockReact.forwardRef((props: object, ref: unknown) => {
+    mockReact.useImperativeHandle(ref, () => ({ seek: jest.fn() }));
+    return mockReact.createElement(View, props);
+  });
+  return {
+    __esModule: true,
+    default: MockVideo,
+    ResizeMode: { CONTAIN: 'contain' },
+    ViewType: { TEXTURE: 0 },
+  };
+});
 
 let keyboard: ReturnType<typeof fakeKeyboard>;
 
@@ -22,71 +42,195 @@ const content = (renderer: ReactTestRenderer) =>
   StyleSheet.flatten(
     renderer.root.findByType(ScrollView).props.contentContainerStyle,
   );
+const continueButton = (renderer: ReactTestRenderer) =>
+  renderer.root.find(
+    node =>
+      node.props.accessibilityLabel === 'Continue' &&
+      typeof node.props.onPress === 'function',
+  );
+const video = (renderer: ReactTestRenderer, id: string) =>
+  renderer.root.find(
+    node => node.props.testID === id && typeof node.type !== 'string',
+  );
+const hasVideo = (renderer: ReactTestRenderer, id: string) =>
+  renderer.root.findAll(
+    node => node.props.testID === id && typeof node.type !== 'string',
+  ).length > 0;
+
+const typeAndContinue = async (renderer: ReactTestRenderer, name: string) => {
+  act(() => {
+    field(renderer).props.onChangeText(name);
+  });
+  await act(async () => {
+    continueButton(renderer).props.onPress();
+  });
+};
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockSetName.mockResolvedValue(undefined);
   mockStartupError = null;
   keyboard = fakeKeyboard();
+  // Keeps the form's fall-back timer from firing after a test has finished.
+  jest.useFakeTimers();
 });
 
 afterEach(() => {
   keyboard.restore();
+  jest.useRealTimers();
 });
 
 describe('WelcomeScreen', () => {
-  it('saves the trimmed name', async () => {
-    const renderer = render(<WelcomeScreen />);
-    act(() => {
-      field(renderer).props.onChangeText('  Erik ');
-    });
+  it('plays the outro on Continue and saves the trimmed name when it ends', async () => {
+    const onLeaving = jest.fn();
+    const renderer = render(<WelcomeScreen onLeaving={onLeaving} />);
+    expect(video(renderer, 'outro-video').props.paused).toBe(true);
+
+    await typeAndContinue(renderer, '  Erik ');
+    const outro = video(renderer, 'outro-video');
+    expect(outro.props.paused).toBe(false);
+    expect(StyleSheet.flatten(outro.props.style).opacity).toBe(1);
+    expect(field(renderer).props.editable).toBe(false);
+    expect(continueButton(renderer).props.disabled).toBe(true);
+    expect(mockSetName).not.toHaveBeenCalled();
+
     await act(async () => {
-      await renderer.root.findByProps({ label: 'Continue' }).props.onPress();
+      video(renderer, 'outro-video').props.onEnd();
+    });
+    expect(onLeaving).toHaveBeenCalledWith(true);
+    expect(mockSetName).toHaveBeenCalledTimes(1);
+    expect(mockSetName).toHaveBeenCalledWith('Erik');
+  });
+
+  it('opens the next screen after 6 seconds if the outro never ends', async () => {
+    const onLeaving = jest.fn();
+    const renderer = render(<WelcomeScreen onLeaving={onLeaving} />);
+    await typeAndContinue(renderer, 'Erik');
+    await act(async () => {
+      jest.advanceTimersByTime(OUTRO_TIMEOUT_MS);
+    });
+    expect(onLeaving).toHaveBeenCalledWith(false);
+    expect(mockSetName).toHaveBeenCalledWith('Erik');
+  });
+
+  it('skips the outro when it fails to play', async () => {
+    const renderer = render(<WelcomeScreen />);
+    await typeAndContinue(renderer, 'Erik');
+    await act(async () => {
+      video(renderer, 'outro-video').props.onError({ error: {} });
     });
     expect(mockSetName).toHaveBeenCalledWith('Erik');
   });
 
+  it('goes straight on when the outro could not even load', async () => {
+    const renderer = render(<WelcomeScreen />);
+    await act(async () => {
+      video(renderer, 'outro-video').props.onError({ error: {} });
+    });
+    expect(hasVideo(renderer, 'outro-video')).toBe(false);
+    await typeAndContinue(renderer, 'Erik');
+    expect(mockSetName).toHaveBeenCalledWith('Erik');
+  });
+
+  it('skips the rest of the outro when the app goes to the background', async () => {
+    const listeners: Array<(state: string) => void> = [];
+    const spy = jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_event, handler) => {
+        listeners.push(handler as (state: string) => void);
+        return { remove: jest.fn() } as never;
+      });
+    const renderer = render(<WelcomeScreen />);
+    await typeAndContinue(renderer, 'Erik');
+    await act(async () => {
+      listeners.forEach(listener => listener('background'));
+    });
+    expect(mockSetName).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+    renderer.unmount();
+  });
+
+  it('holds the intro on its last frame instead of looping', () => {
+    const renderer = render(<WelcomeScreen />);
+    const intro = video(renderer, 'intro-video');
+    expect(intro.props.repeat).toBe(false);
+    expect(intro.props.muted).toBe(true);
+    expect(intro.props.controls).toBe(false);
+    act(() => {
+      intro.props.onEnd();
+    });
+    expect(video(renderer, 'intro-video').props.paused).toBe(true);
+  });
+
   it('does not continue without a name, and says why saving failed', async () => {
     const renderer = render(<WelcomeScreen />);
-    expect(
-      renderer.root.findByProps({ label: 'Continue' }).props.disabled,
-    ).toBe(true);
-    mockSetName.mockRejectedValue(new Error('storage broken'));
+    expect(continueButton(renderer).props.disabled).toBe(true);
     act(() => {
-      field(renderer).props.onChangeText('Erik');
+      field(renderer).props.onChangeText('   ');
     });
+    expect(continueButton(renderer).props.disabled).toBe(true);
+
+    mockSetName.mockRejectedValue(new Error('storage broken'));
+    await typeAndContinue(renderer, 'Erik');
     await act(async () => {
-      await renderer.root.findByProps({ label: 'Continue' }).props.onPress();
+      video(renderer, 'outro-video').props.onEnd();
     });
     expect(texts(renderer)).toContain(
       'Could not save your name on this device. Try again.',
     );
+    // Back on the form, ready to try again.
+    expect(field(renderer).props.editable).toBe(true);
+    expect(continueButton(renderer).props.disabled).toBe(false);
   });
 
   it('keeps the name field in the app, not in the keyboard’s own full-screen editor', () => {
     const input = field(render(<WelcomeScreen />));
     expect(input.props.disableFullscreenUI).toBe(true);
     expect(input.props.underlineColorAndroid).toBe('transparent');
+    expect(input.props.maxLength).toBe(MAX_NAME_LENGTH);
   });
 
-  it('centres the form in a scroll view that makes room for the keyboard', () => {
+  it('makes room for the keyboard', () => {
     const renderer = render(<WelcomeScreen />);
+    // A landscape phone: the picture fills the height, so the keyboard covers part of it.
+    act(() => {
+      renderer.root
+        .find(node => typeof node.props.onLayout === 'function')
+        .props.onLayout({
+          nativeEvent: { layout: { width: 800, height: 360 } },
+        });
+    });
     expect(
       renderer.root.findByType(ScrollView).props.keyboardShouldPersistTaps,
     ).toBe('handled');
     expect(content(renderer)).toMatchObject({
       flexGrow: 1,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      alignContent: 'center',
       justifyContent: 'center',
       paddingBottom: 0,
     });
-
     keyboard.show(280);
     expect(content(renderer).paddingBottom).toBe(280);
     keyboard.hide();
     expect(content(renderer).paddingBottom).toBe(0);
+  });
+});
+
+describe('containedRect', () => {
+  it('fits the 16:9 picture by height on a wide phone, centred', () => {
+    expect(containedRect(800, 360)).toEqual({
+      left: 80,
+      top: 0,
+      width: 640,
+      height: 360,
+    });
+  });
+
+  it('fits it by width on a squarer screen, centred', () => {
+    expect(containedRect(1024, 768)).toEqual({
+      left: 0,
+      top: 96,
+      width: 1024,
+      height: 576,
+    });
   });
 });

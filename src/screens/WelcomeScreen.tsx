@@ -22,7 +22,6 @@ import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { READING_FONT_SCALE, spacing } from '../theme';
 import { useKeyboardInset } from '../ui/keyboard';
 import { motionEnabled, usePressScale } from '../ui/motion';
-import { useLandscapeLock } from '../ui/orientationLock';
 
 const INTRO = require('../../assets/video/clip1_intro.mp4');
 const OUTRO = require('../../assets/video/clip2_throw.mp4');
@@ -76,7 +75,6 @@ export function containedRect(width: number, height: number) {
  * (exactly as before, through `setName`), which opens the next screen.
  */
 export function WelcomeScreen({ onLeaving }: Props) {
-  useLandscapeLock();
   const { setName, startupError } = useProfile();
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();

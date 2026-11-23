@@ -18,8 +18,6 @@ class MainApplication : Application(), ReactApplication {
           // add(MyReactNativePackage())
           // Sound effects: a small module that lives in this app (CoupSoundModule.kt).
           add(CoupSoundPackage())
-          // Holds the name screen in landscape (CoupOrientationModule.kt).
-          add(CoupOrientationPackage())
         },
     )
   }

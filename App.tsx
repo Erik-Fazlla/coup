@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Button } from './src/components/Button';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { FadeIn } from './src/components/FadeIn';
 import { FlashFade } from './src/components/FlashFade';
 import { Panel } from './src/components/Panel';
 import { Screen } from './src/components/Screen';
@@ -26,46 +27,55 @@ function GameRouter() {
   const { playerId } = useProfile();
   const { error, leave } = game;
 
-  switch (routeFor(game, playerId)) {
-    case 'blank':
-      return <Screen>{null}</Screen>;
-    case 'home':
-      return <HomeScreen />;
-    case 'loading':
-      return <Fallback message="Loading game…" error={error} onBack={leave} />;
-    case 'missing':
-      return (
-        <Fallback
-          message="This game no longer exists."
-          error={error}
-          onBack={leave}
-        />
-      );
-    case 'lobby':
-      return <LobbyScreen />;
-    case 'removed':
-      return <RemovedScreen />;
-    case 'left':
-      return (
-        <Fallback
-          message="You are no longer in this game."
-          error={error}
-          onBack={leave}
-        />
-      );
-    case 'game':
-      return <GameScreen />;
-    case 'over':
-      return <GameOverScreen />;
-    default:
-      return (
-        <Fallback
-          message="This game cannot be opened."
-          error={error}
-          onBack={leave}
-        />
-      );
-  }
+  const route = routeFor(game, playerId);
+
+  const screenFor = (current: typeof route): React.ReactElement => {
+    switch (current) {
+      case 'blank':
+        return <Screen>{null}</Screen>;
+      case 'home':
+        return <HomeScreen />;
+      case 'loading':
+        return (
+          <Fallback message="Loading game…" error={error} onBack={leave} />
+        );
+      case 'missing':
+        return (
+          <Fallback
+            message="This game no longer exists."
+            error={error}
+            onBack={leave}
+          />
+        );
+      case 'lobby':
+        return <LobbyScreen />;
+      case 'removed':
+        return <RemovedScreen />;
+      case 'left':
+        return (
+          <Fallback
+            message="You are no longer in this game."
+            error={error}
+            onBack={leave}
+          />
+        );
+      case 'game':
+        return <GameScreen />;
+      case 'over':
+        return <GameOverScreen />;
+      default:
+        return (
+          <Fallback
+            message="This game cannot be opened."
+            error={error}
+            onBack={leave}
+          />
+        );
+    }
+  };
+
+  // A new route mounts a fresh fade, so each screen fades in as it opens.
+  return <FadeIn key={route}>{screenFor(route)}</FadeIn>;
 }
 
 function Fallback({

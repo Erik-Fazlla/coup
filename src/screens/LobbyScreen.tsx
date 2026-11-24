@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Alert,
+  Animated,
   Pressable,
   ScrollView,
   Share,
@@ -26,6 +27,7 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
+import { useAppear } from '../ui/motion';
 import { useIsPortrait } from '../ui/orientation';
 import { isOnline, knownPresence } from '../ui/presence';
 import { useGameSounds } from '../ui/soundCues';
@@ -37,6 +39,14 @@ function shareCode(code: string) {
   } catch {
     // Nothing to tell the player: the code is still on screen to read out.
   }
+}
+
+/** A player row arriving in the lobby: it fades and grows in once, when it first appears. */
+function PopIn({ children }: { children: React.ReactNode }) {
+  const appear = useAppear();
+  return (
+    <Animated.View style={[styles.popIn, appear]}>{children}</Animated.View>
+  );
 }
 
 export function LobbyScreen() {
@@ -146,54 +156,55 @@ export function LobbyScreen() {
                   isYou ? ' (you)' : ''
                 }`;
                 return (
-                  <View
-                    key={id}
-                    testID={`player-${id}`}
-                    style={[styles.player, isYou && styles.playerYou]}
-                  >
-                    {here !== null && <OnlineDot online={here} />}
-                    <Text
-                      style={styles.playerName}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      accessibilityLabel={
-                        here === null
-                          ? shown
-                          : `${shown}, ${here ? 'online' : 'offline'}`
-                      }
-                      maxFontSizeMultiplier={DENSE_FONT_SCALE}
+                  <PopIn key={id}>
+                    <View
+                      testID={`player-${id}`}
+                      style={[styles.player, isYou && styles.playerYou]}
                     >
-                      {shown}
-                    </Text>
-                    {isHost && !isYou && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Remove ${name}`}
-                        accessibilityState={{ disabled }}
-                        disabled={disabled}
-                        onPress={() => confirmKick(id, name)}
-                        testID={`kick-${id}`}
-                        style={styles.kickTouch}
+                      {here !== null && <OnlineDot online={here} />}
+                      <Text
+                        style={styles.playerName}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        accessibilityLabel={
+                          here === null
+                            ? shown
+                            : `${shown}, ${here ? 'online' : 'offline'}`
+                        }
+                        maxFontSizeMultiplier={DENSE_FONT_SCALE}
                       >
-                        {({ pressed }) => (
-                          <View
-                            style={[
-                              styles.kick,
-                              pressed && styles.pressed,
-                              disabled && styles.disabled,
-                            ]}
-                          >
-                            <Text
-                              style={styles.kickText}
-                              maxFontSizeMultiplier={DENSE_FONT_SCALE}
+                        {shown}
+                      </Text>
+                      {isHost && !isYou && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={`Remove ${name}`}
+                          accessibilityState={{ disabled }}
+                          disabled={disabled}
+                          onPress={() => confirmKick(id, name)}
+                          testID={`kick-${id}`}
+                          style={styles.kickTouch}
+                        >
+                          {({ pressed }) => (
+                            <View
+                              style={[
+                                styles.kick,
+                                pressed && styles.pressed,
+                                disabled && styles.disabled,
+                              ]}
                             >
-                              Remove
-                            </Text>
-                          </View>
-                        )}
-                      </Pressable>
-                    )}
-                  </View>
+                              <Text
+                                style={styles.kickText}
+                                maxFontSizeMultiplier={DENSE_FONT_SCALE}
+                              >
+                                Remove
+                              </Text>
+                            </View>
+                          )}
+                        </Pressable>
+                      )}
+                    </View>
+                  </PopIn>
                 );
               })}
             </View>
@@ -240,6 +251,7 @@ const styles = StyleSheet.create({
   listContent: { flexGrow: 1, justifyContent: 'center', gap: spacing.md },
   listPanel: { alignItems: 'stretch' },
   players: { alignSelf: 'stretch', gap: spacing.xs },
+  popIn: { alignSelf: 'stretch' },
   player: {
     minHeight: TOUCH_MIN,
     flexDirection: 'row',

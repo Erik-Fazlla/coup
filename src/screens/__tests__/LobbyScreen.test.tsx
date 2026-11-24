@@ -274,3 +274,51 @@ describe('LobbyScreen scoreboard and start', () => {
     expect(side(360, 640)).toHaveLength(0);
   });
 });
+
+describe('LobbyScreen players popping in', () => {
+  /** The nearest view on screen around a player row. */
+  const wrapper = (renderer: ReactTestRenderer, id: string) => {
+    let node = host(renderer, `player-${id}`).parent;
+    while (node && typeof node.type !== 'string') {
+      node = node.parent;
+    }
+    return node;
+  };
+
+  it('wraps every row in its own view that fades and grows, and keeps the rows as they were', () => {
+    const renderer = mount('host');
+    const game = lobby();
+    game.playerOrder.forEach(id => {
+      expect(
+        StyleSheet.flatten(wrapper(renderer, id)?.props.style),
+      ).toMatchObject({
+        opacity: 1,
+      });
+    });
+    expect(texts(renderer)).toContain('MARIA');
+    expect(findButton(renderer, 'kick-maria')).toBeDefined();
+
+    const joined: Game = {
+      ...game,
+      playerOrder: [...game.playerOrder, 'eleni'],
+      players: {
+        ...game.players,
+        eleni: { ...game.players.maria, name: 'ELENI' },
+      },
+    };
+    mockGameValue = { ...mockGameValue, game: joined };
+    act(() => {
+      renderer.update(<LobbyScreen />);
+    });
+    joined.playerOrder.forEach(id => {
+      expect(host(renderer, `player-${id}`)).toBeDefined();
+      expect(
+        StyleSheet.flatten(wrapper(renderer, id)?.props.style),
+      ).toMatchObject({
+        opacity: 1,
+      });
+    });
+    expect(texts(renderer)).toContain('ELENI');
+    expect(findButton(renderer, 'kick-eleni')).toBeDefined();
+  });
+});

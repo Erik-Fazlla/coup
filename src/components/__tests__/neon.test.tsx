@@ -5,6 +5,7 @@ import { ActionTile } from '../ActionTile';
 import { Backdrop } from '../Backdrop';
 import { CardBack } from '../CardBack';
 import { Button } from '../Button';
+import { CardShade } from '../CardShade';
 import { CharacterCard } from '../CharacterCard';
 import { Panel } from '../Panel';
 import {
@@ -196,5 +197,15 @@ describe('ActionTile', () => {
     const { style } = tile(true);
     expect(style.borderColor).toBe(colors.primary);
     expect(style.boxShadow).toBe(glow.cyan);
+  });
+});
+
+describe('CardShade', () => {
+  it('stretches the shading image over the whole card, not its intrinsic width', () => {
+    const renderer = render(<CardShade />);
+    const style = flat(renderer.root.findByType(Image).props.style);
+    expect(style.width).toBe('100%');
+    expect(style.height).toBe('100%');
+    expect(style.position).toBe('absolute');
   });
 });

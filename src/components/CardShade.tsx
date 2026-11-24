@@ -21,8 +21,19 @@ export function CardShade() {
         source={SHADE}
         resizeMode="stretch"
         fadeDuration={0}
-        style={StyleSheet.absoluteFill}
+        style={styles.image}
       />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  // The image keeps its intrinsic width (a 16 px strip) unless sized explicitly.
+  image: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+});

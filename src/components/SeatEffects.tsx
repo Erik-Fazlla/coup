@@ -22,10 +22,14 @@ export function SeatEffects({ moment }: { moment: SeatMoment | null }) {
   const progress = useRef(new Animated.Value(1)).current;
   const [shown, setShown] = useState<SeatMoment | null>(null);
 
+  const running = useRef<Animated.CompositeAnimation | null>(null);
+
   useEffect(() => {
     if (!moment || !motionEnabled()) {
       return;
     }
+    // Only a NEW moment replaces the one playing; a moment going to null lets it finish.
+    running.current?.stop();
     setShown(moment);
     progress.setValue(0);
     const animation = Animated.timing(progress, {
@@ -34,15 +38,19 @@ export function SeatEffects({ moment }: { moment: SeatMoment | null }) {
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     });
+    running.current = animation;
     animation.start(({ finished }) => {
-      if (finished) {
+      if (finished && running.current === animation) {
+        running.current = null;
         setShown(null);
       }
     });
-    return () => animation.stop();
     // Only a new moment id starts the effect again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moment?.id]);
+
+  // Leaving the screen stops whatever is still playing.
+  useEffect(() => () => running.current?.stop(), []);
 
   if (!shown || !motionEnabled()) {
     return null;

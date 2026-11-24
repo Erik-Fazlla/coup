@@ -40,6 +40,20 @@ describe('SeatEffects', () => {
     expect(texts(renderer)).toEqual([]);
   });
 
+  it('lets the running effect finish when the moment goes to null', () => {
+    const renderer = render(
+      <SeatEffects moment={{ id: 1, coins: 2, block: false, lost: false }} />,
+    );
+    expect(texts(renderer)).toContain('+2');
+    act(() => {
+      renderer.update(<SeatEffects moment={null} />);
+    });
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(texts(renderer)).toEqual([]);
+  });
+
   it('writes a loss with a minus sign', () => {
     const renderer = render(
       <SeatEffects moment={{ id: 2, coins: -2, block: false, lost: false }} />,

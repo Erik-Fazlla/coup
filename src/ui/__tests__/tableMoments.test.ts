@@ -71,6 +71,21 @@ describe('tableMoments', () => {
     expect(tableMoments(before, other)).toEqual([{ kind: 'deal' }]);
   });
 
+  it('marks the player who just lost a card', () => {
+    const couped = play(table(), { type: 'coup', playerId: 'b', target: 'c' });
+    const lost = play(couped, {
+      type: 'loseInfluence',
+      playerId: 'c',
+      cardIndex: 0,
+    });
+    const moments = tableMoments(couped, lost);
+    expect(moments).toContainEqual({ kind: 'cardLost', playerId: 'c' });
+    expect(seatMoment({ seq: 7, moments }, 'c')).toMatchObject({
+      id: 7,
+      lost: true,
+    });
+  });
+
   it('never names a hidden card', () => {
     const before = table();
     const after = play(before, { type: 'tax', playerId: 'b' });
@@ -96,6 +111,7 @@ describe('seatMoment', () => {
       coins: -2,
       tag: 'STEAL · Captain',
       block: false,
+      lost: false,
     });
     expect(seatMoment(batch, 'me')).toBeNull();
   });

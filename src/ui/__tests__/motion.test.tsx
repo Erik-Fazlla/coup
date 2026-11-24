@@ -10,6 +10,7 @@ import {
   useCountTick,
   useDealIn,
   useFlip,
+  useShake,
   useSweep,
 } from '../motion';
 
@@ -193,5 +194,48 @@ describe('useSweep', () => {
   it('draws nothing with motion off', () => {
     render(<Probe active />);
     expect(sweep).toBeNull();
+  });
+});
+
+describe('useShake', () => {
+  let offset: Animated.Value;
+
+  function Probe({ shakeKey }: { shakeKey: number | null }) {
+    offset = useShake(shakeKey);
+    return null;
+  }
+
+  it('shakes side to side and settles back at 0 for a new key', () => {
+    // Under Jest the native driver finishes without writing the value back,
+    // so the test checks the steps that are started.
+    const timing = jest.spyOn(Animated, 'timing');
+    jest.useFakeTimers();
+    setMotionInstant(false);
+    const renderer = render(<Probe shakeKey={null} />);
+    expect(timing).not.toHaveBeenCalled();
+    act(() => {
+      renderer.update(<Probe shakeKey={3} />);
+    });
+    const steps = timing.mock.calls.map(([value, config]) => {
+      expect(value).toBe(offset);
+      expect(config).toMatchObject({ useNativeDriver: true });
+      return (config as { toValue: number }).toValue;
+    });
+    expect(steps).toEqual([-6, 6, -4, 4, 0]);
+    act(() => {
+      jest.advanceTimersByTime(600);
+    });
+    act(() => renderer.unmount());
+    expect(valueOf(offset)).toBe(0);
+    jest.useRealTimers();
+    timing.mockRestore();
+  });
+
+  it('stays still with motion off', () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    render(<Probe shakeKey={3} />);
+    expect(timing).not.toHaveBeenCalled();
+    expect(valueOf(offset)).toBe(0);
+    timing.mockRestore();
   });
 });

@@ -262,7 +262,7 @@ describe('Seat effects', () => {
       <Seat
         player={player()}
         isTurn={false}
-        moment={{ id: 1, coins: 2, block: false }}
+        moment={{ id: 1, coins: 2, block: false, lost: false }}
       />,
     );
     expect(texts(renderer)).toContain('+2');
@@ -287,7 +287,13 @@ describe('Seat effects', () => {
         <Seat
           player={player()}
           isTurn={false}
-          moment={{ id: 1, coins: 2, tag: 'TAX · Duke', block: true }}
+          moment={{
+            id: 1,
+            coins: 2,
+            tag: 'TAX · Duke',
+            block: true,
+            lost: false,
+          }}
         />,
       ),
     );

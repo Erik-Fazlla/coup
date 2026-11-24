@@ -2,6 +2,7 @@ import React from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
 import { act } from 'react-test-renderer';
 import { setMotionInstant } from '../../ui/motion';
+import { CardCrack } from '../CardCrack';
 import { FadeIn } from '../FadeIn';
 import { PulseRing } from '../PulseRing';
 import { SeatEffects } from '../SeatEffects';
@@ -20,7 +21,13 @@ describe('SeatEffects', () => {
   it('shows the coin change and the claim tag for a new moment, then clears them', () => {
     const renderer = render(
       <SeatEffects
-        moment={{ id: 1, coins: 2, tag: 'TAX · Duke', block: false }}
+        moment={{
+          id: 1,
+          coins: 2,
+          tag: 'TAX · Duke',
+          block: false,
+          lost: false,
+        }}
       />,
     );
     expect(texts(renderer)).toEqual(
@@ -34,16 +41,35 @@ describe('SeatEffects', () => {
 
   it('writes a loss with a minus sign', () => {
     const renderer = render(
-      <SeatEffects moment={{ id: 2, coins: -2, block: false }} />,
+      <SeatEffects moment={{ id: 2, coins: -2, block: false, lost: false }} />,
     );
     expect(texts(renderer)).toContain('−2');
+  });
+
+  it('flashes the seat red when it loses a card', () => {
+    const flash = (lost: boolean) =>
+      render(
+        <SeatEffects moment={{ id: 5, block: false, lost }} />,
+      ).root.findAll(
+        node =>
+          node.props.testID === 'seat-lost-flash' &&
+          typeof node.type === 'string',
+      );
+    expect(flash(true)).toHaveLength(1);
+    expect(flash(false)).toHaveLength(0);
   });
 
   it('draws nothing with motion off', () => {
     setMotionInstant(true);
     const renderer = render(
       <SeatEffects
-        moment={{ id: 3, coins: 2, tag: 'TAX · Duke', block: true }}
+        moment={{
+          id: 3,
+          coins: 2,
+          tag: 'TAX · Duke',
+          block: true,
+          lost: false,
+        }}
       />,
     );
     expect(renderer.toJSON()).toBeNull();
@@ -51,7 +77,7 @@ describe('SeatEffects', () => {
 
   it('takes no touches and is hidden from screen readers', () => {
     const renderer = render(
-      <SeatEffects moment={{ id: 4, coins: 1, block: false }} />,
+      <SeatEffects moment={{ id: 4, coins: 1, block: false, lost: false }} />,
     );
     const root = renderer.root.findAll(
       node =>
@@ -109,5 +135,42 @@ describe('FadeIn', () => {
     );
     act(() => renderer.unmount());
     timing.mockRestore();
+  });
+});
+
+describe('CardCrack', () => {
+  beforeEach(() => {
+    setMotionInstant(false);
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    setMotionInstant(true);
+    jest.useRealTimers();
+  });
+
+  const halves = (renderer: ReturnType<typeof render>) =>
+    renderer.root
+      .findAll(node => typeof node.type === 'string')
+      .map(node => node.props.testID)
+      .filter(id => id === 'crack-left' || id === 'crack-right');
+
+  it('breaks in two, takes no touches, and clears itself', () => {
+    const renderer = render(<CardCrack play />);
+    expect(halves(renderer)).toEqual(['crack-left', 'crack-right']);
+    const root = renderer.root.findAll(
+      node => typeof node.type === 'string',
+    )[0];
+    expect(root.props.pointerEvents).toBe('none');
+    expect(root.props.importantForAccessibility).toBe('no-hide-descendants');
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(renderer.toJSON()).toBeNull();
+  });
+
+  it('draws nothing when not playing or with motion off', () => {
+    expect(render(<CardCrack play={false} />).toJSON()).toBeNull();
+    setMotionInstant(true);
+    expect(render(<CardCrack play />).toJSON()).toBeNull();
   });
 });

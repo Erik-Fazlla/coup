@@ -3,7 +3,9 @@ import { Text } from 'react-native';
 import { act, create, ReactTestRenderer } from 'react-test-renderer';
 import { CHARACTER_INFO } from '../../engine/describe';
 import { CARDS } from '../../engine/types';
+import { setMotionInstant } from '../../ui/motion';
 import { CardBack } from '../CardBack';
+import { CardCrack } from '../CardCrack';
 import { CharacterCard } from '../CharacterCard';
 import { Coins } from '../Coins';
 import { MiniCard } from '../MiniCard';
@@ -61,6 +63,38 @@ describe('CharacterCard', () => {
       disabled: true,
     });
     expect(button.props.disabled).toBe(true);
+  });
+
+  describe('losing a card with motion on', () => {
+    beforeEach(() => {
+      setMotionInstant(false);
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      setMotionInstant(true);
+      jest.useRealTimers();
+    });
+
+    const cracks = (renderer: ReactTestRenderer) =>
+      renderer.root
+        .findAllByType(CardCrack)
+        .filter(node => node.props.play === true);
+
+    it('cracks the card the moment it is lost', () => {
+      const renderer = render(<CharacterCard card="Duke" lost={false} />);
+      expect(cracks(renderer)).toHaveLength(0);
+      act(() => {
+        renderer.update(<CharacterCard card="Duke" lost />);
+      });
+      expect(cracks(renderer)).toHaveLength(1);
+      act(() => renderer.unmount());
+    });
+
+    it('never cracks a card that was already lost', () => {
+      const renderer = render(<CharacterCard card="Duke" lost />);
+      expect(cracks(renderer)).toHaveLength(0);
+      act(() => renderer.unmount());
+    });
   });
 
   it('hides the ability text when told there is no room for it', () => {

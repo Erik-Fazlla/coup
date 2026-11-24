@@ -383,3 +383,29 @@ export function useSweep(active: boolean): Animated.Value | null {
   }, [active, progress]);
   return running ? progress : null;
 }
+
+/** A short side-to-side shake each time `key` changes to a new non-null value. */
+export function useShake(key: number | null): Animated.Value {
+  const offset = useValue(0);
+  useEffect(() => {
+    if (key === null || !motionEnabled()) {
+      offset.setValue(0);
+      return;
+    }
+    const step = (toValue: number) =>
+      Animated.timing(offset, { toValue, duration: 60, useNativeDriver: true });
+    const animation = Animated.sequence([
+      step(-6),
+      step(6),
+      step(-4),
+      step(4),
+      step(0),
+    ]);
+    animation.start();
+    return () => {
+      animation.stop();
+      offset.setValue(0);
+    };
+  }, [key, offset]);
+  return offset;
+}

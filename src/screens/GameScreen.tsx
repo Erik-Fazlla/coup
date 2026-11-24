@@ -57,7 +57,7 @@ import {
   spacing,
   typography,
 } from '../theme';
-import { useDealIn, usePulse } from '../ui/motion';
+import { useDealIn, usePulse, useShake } from '../ui/motion';
 import { isOnline, knownPresence } from '../ui/presence';
 import { useRevealOnce } from '../ui/reveal';
 import { useGameSounds } from '../ui/soundCues';
@@ -114,6 +114,9 @@ export function GameScreen() {
   const opponentCount = game ? game.playerOrder.length - 1 : 0;
   // The local hand is dealt last, after every seat.
   const handDeal = useDealIn(deal, Math.min(opponentCount * 80, 640));
+  // The local player's part of the latest batch; their hand shakes when they lose a card.
+  const myMoment = seatMoment(moments, playerId);
+  const shake = useShake(myMoment?.lost ? myMoment.id : null);
   const { reveal, dismiss: dismissReveal } = useRevealOnce(game);
   // Only the host's own clock matters: nobody else is offered the skip.
   const stalled = useStalled(isHost && playing ? waitKey(game) : null);
@@ -316,12 +319,13 @@ export function GameScreen() {
               { height: layout.bottomHeight },
             ]}
           >
-            <View
+            <Animated.View
               style={[
                 styles.hand,
                 portrait
                   ? [styles.handPortrait, { height: layout.handHeight }]
                   : { width: layout.handWidth },
+                { transform: [{ translateX: shake }] },
               ]}
             >
               {yours && (
@@ -351,8 +355,8 @@ export function GameScreen() {
                   />
                 ))}
               </Animated.View>
-              <SeatEffects moment={seatMoment(moments, playerId)} />
-            </View>
+              <SeatEffects moment={myMoment} />
+            </Animated.View>
 
             <View
               style={

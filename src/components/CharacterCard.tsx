@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { CHARACTER_INFO } from '../engine/describe';
 import { Card } from '../engine/types';
@@ -13,6 +13,7 @@ import {
   typography,
 } from '../theme';
 import { useFlip } from '../ui/motion';
+import { CardCrack } from './CardCrack';
 import { CardShade } from './CardShade';
 import { CharacterGlyph } from './CharacterGlyph';
 
@@ -50,6 +51,17 @@ export function CharacterCard({
   // A screen reader hears the truth at once; the eye sees the card turn over.
   const label = lost ? `${card}, lost` : `${card}: ${ability}`;
   const flip = useFlip(lost);
+  // The card breaks only at the moment it is lost, never when it was lost already.
+  const previousLost = useRef(lost);
+  const [crack, setCrack] = useState(false);
+  useEffect(() => {
+    if (lost && !previousLost.current) {
+      setCrack(true);
+    } else if (!lost) {
+      setCrack(false);
+    }
+    previousLost.current = lost;
+  }, [lost]);
   const shownLost = flip.shown;
   const accent = shownLost ? colors.faint : palette.accent;
   const fill = shownLost ? colors.background : palette.fill;
@@ -102,6 +114,7 @@ export function CharacterCard({
           {ability}
         </Text>
       )}
+      <CardCrack play={crack} />
     </>
   );
 

@@ -15,8 +15,8 @@ const SHOW_MS = 1100;
 
 /**
  * The short-lived effects on one seat (or the local player's hand): a gold coin
- * change rising and fading, a claim or block tag popping in, and a flash for a
- * block. Each new `moment.id` plays once. Draws nothing with motion off.
+ * change rising and fading, a claim or block tag popping in, a cyan flash for a
+ * block and a red one for a lost card. Each new `moment.id` plays once. Draws nothing with motion off.
  */
 export function SeatEffects({ moment }: { moment: SeatMoment | null }) {
   const progress = useRef(new Animated.Value(1)).current;
@@ -76,6 +76,12 @@ export function SeatEffects({ moment }: { moment: SeatMoment | null }) {
       {shown.block && (
         <Animated.View style={[styles.flash, { opacity: flash }]} />
       )}
+      {shown.lost && (
+        <Animated.View
+          testID="seat-lost-flash"
+          style={[styles.flash, styles.lostFlash, { opacity: flash }]}
+        />
+      )}
       {shown.tag !== undefined && (
         <Animated.View
           style={[
@@ -128,6 +134,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: neon.cyan,
     backgroundColor: 'rgba(0, 229, 255, 0.18)',
+  },
+  lostFlash: {
+    borderColor: colors.danger,
+    backgroundColor: 'rgba(248, 113, 113, 0.22)',
   },
   tag: {
     paddingHorizontal: 8,

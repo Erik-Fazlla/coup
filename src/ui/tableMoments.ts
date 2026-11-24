@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ACTION_LABEL } from '../engine/describe';
-import { Game } from '../engine/types';
+import { Game, Player } from '../engine/types';
 
 /** Something on the table worth a short animation. Never names a hidden card. */
 export type Moment =
   | { kind: 'coins'; playerId: string; delta: number }
   | { kind: 'claim'; playerId: string; label: string }
   | { kind: 'block'; playerId: string; label: string }
+  | { kind: 'cardLost'; playerId: string }
   | { kind: 'deal' };
 
 /** The moments of one snapshot change, numbered so a component can tell a new batch from an old one. */
@@ -21,7 +22,12 @@ export interface SeatMoment {
   coins?: number;
   tag?: string;
   block: boolean;
+  /** The player has just lost a card. */
+  lost: boolean;
 }
+
+const revealed = (player: Player) =>
+  player.influence.filter(card => card.revealed).length;
 
 function sameRound(a: Game, b: Game): boolean {
   return (
@@ -85,6 +91,13 @@ export function tableMoments(previous: Game | null, next: Game): Moment[] {
       });
     }
   }
+  for (const id of next.playerOrder) {
+    const was = previous.players[id];
+    const now = next.players[id];
+    if (was && now && revealed(now) > revealed(was)) {
+      moments.push({ kind: 'cardLost', playerId: id });
+    }
+  }
   return moments;
 }
 
@@ -113,20 +126,23 @@ export function seatMoment(
   let coins: number | undefined;
   let tag: string | undefined;
   let block = false;
+  let lost = false;
   for (const moment of batch.moments) {
     if (moment.kind === 'deal' || moment.playerId !== playerId) {
       continue;
     }
     if (moment.kind === 'coins') {
       coins = moment.delta;
+    } else if (moment.kind === 'cardLost') {
+      lost = true;
     } else {
       tag = moment.label;
       block = block || moment.kind === 'block';
     }
   }
-  return coins === undefined && tag === undefined
+  return coins === undefined && tag === undefined && !lost
     ? null
-    : { id: batch.seq, coins, tag, block };
+    : { id: batch.seq, coins, tag, block, lost };
 }
 
 /** The batch number of the latest deal, or null if the latest batch is not a deal. */

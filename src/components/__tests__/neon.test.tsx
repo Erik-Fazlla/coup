@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, StyleSheet, Text } from 'react-native';
+import { Image, Pressable, StyleSheet, Text } from 'react-native';
 import { ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 import { ActionTile } from '../ActionTile';
 import { Backdrop } from '../Backdrop';
@@ -111,6 +111,20 @@ describe('Button', () => {
     expect(style.backgroundColor).toBe(colors.background);
     expect(style.borderColor).toBe(colors.borderStrong);
     expect(label.color).toBe(neon.mist);
+  });
+
+  it('pressed: primary and secondary glow cyan, danger glows red', () => {
+    // Pressable hands its children the pressed state; ask for the pressed face directly.
+    const pressedStyle = (variant: 'primary' | 'secondary' | 'danger') => {
+      const renderer = render(
+        <Button label="Go" variant={variant} onPress={() => {}} />,
+      );
+      const children = renderer.root.findByType(Pressable).props.children;
+      return flat(children({ pressed: true }).props.style);
+    };
+    expect(pressedStyle('danger').boxShadow).toBe(glow.danger);
+    expect(pressedStyle('primary').boxShadow).toBe(glow.cyan);
+    expect(pressedStyle('secondary').boxShadow).toBe(glow.cyan);
   });
 
   it('a disabled button does not glow', () => {

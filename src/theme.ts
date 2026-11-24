@@ -18,6 +18,8 @@ export const glow = {
   blue: '0 0 16px rgba(30, 107, 255, 0.75)',
   /** A quiet edge glow on panels. */
   soft: '0 0 10px rgba(0, 229, 255, 0.18)',
+  /** A destructive button under the finger. */
+  danger: '0 0 14px rgba(248, 113, 113, 0.55)',
   /** The player whose turn it is. */
   gold: '0 0 12px rgba(245, 197, 66, 0.45)',
 };

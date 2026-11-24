@@ -50,7 +50,8 @@ export function Button({
           style={[
             styles.face,
             styles[variant],
-            pressed && styles.pressed,
+            pressed &&
+              (variant === 'danger' ? styles.pressedDanger : styles.pressed),
             disabled && styles.disabled,
             { transform: [{ scale }] },
           ]}
@@ -102,6 +103,8 @@ const styles = StyleSheet.create({
   danger: { backgroundColor: colors.danger, borderColor: colors.danger },
   // A brighter glow under the finger instead of fading out.
   pressed: { boxShadow: glow.cyan },
+  // Cyan means "you / tap here", so a destructive button glows red instead.
+  pressedDanger: { boxShadow: glow.danger },
   disabled: { opacity: 0.35, boxShadow: 'none' },
   label: {
     color: '#ffffff',

@@ -1,20 +1,49 @@
 import { Card } from './engine/types';
 
+/** The intro's colours. Cyan stays the one "this is you / tap here" colour. */
+export const neon = {
+  cyan: '#00E5FF',
+  blue: '#1E6BFF',
+  /** Headings and titles that glow. */
+  ice: '#E6FDFF',
+  /** Secondary text on a glowing surface. */
+  mist: '#BFF7FF',
+};
+
+/** Box shadows (React Native `boxShadow`) for the neon glow. */
+export const glow = {
+  /** Something that is yours or can be tapped. */
+  cyan: '0 0 14px rgba(0, 229, 255, 0.45)',
+  /** A main button. */
+  blue: '0 0 16px rgba(30, 107, 255, 0.75)',
+  /** A quiet edge glow on panels. */
+  soft: '0 0 10px rgba(0, 229, 255, 0.18)',
+  /** The player whose turn it is. */
+  gold: '0 0 12px rgba(245, 197, 66, 0.45)',
+};
+
+/** Text glow for big titles ("COUP", "You won"). */
+export const glowText = {
+  textShadowColor: neon.cyan,
+  textShadowOffset: { width: 0, height: 0 },
+  textShadowRadius: 16,
+};
+
 export const colors = {
   background: '#000000',
-  /** Panels and seats resting on the table. */
-  surface: '#131316',
+  /** Panels and seats resting on the table: see-through, so the haze shows a little. */
+  surface: 'rgba(0, 20, 27, 0.72)',
   /** Tiles and buttons that sit on a panel. */
-  surfaceRaised: '#1d1d22',
-  border: '#2b2b31',
-  borderStrong: '#4a4a55',
+  surfaceRaised: '#071a20',
+  border: 'rgba(0, 229, 255, 0.18)',
+  borderStrong: 'rgba(0, 229, 255, 0.42)',
   text: '#ffffff',
-  muted: '#a1a1aa',
+  muted: '#9db7bd',
   /** Decoration only: too dim for text that must be read. */
-  faint: '#71717a',
+  faint: '#5f7c82',
   /** "This is you / tap here". Never used for anything else. */
-  primary: '#22d3ee',
-  primaryFill: '#06323a',
+  primary: '#00E5FF',
+  primaryFill: '#03303a',
   secondary: '#4b5563',
   danger: '#f87171',
   dangerFill: '#4a1414',
@@ -27,7 +56,7 @@ export const colors = {
   /** Behind a short-lived overlay: the table stays visible through it. */
   scrimLight: 'rgba(0, 0, 0, 0.72)',
   /** Thin edge that lifts a coloured tile off the black table. */
-  edge: 'rgba(255, 255, 255, 0.12)',
+  edge: 'rgba(0, 229, 255, 0.35)',
   /** Dark well behind a glyph on a coloured card. */
   well: 'rgba(0, 0, 0, 0.32)',
 };

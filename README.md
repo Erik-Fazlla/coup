@@ -145,7 +145,7 @@ The deck has 3 of each character (15 cards) for 2–6 players and 4 of each (20 
 
 ## Sounds
 
-The sound effects (your turn, a prompt to respond, coins, a lost card, a challenge, win, lose) are not downloaded: `npm run sounds` makes them from code (`scripts/generate-sounds.js`) and writes them as small WAV files to `android/app/src/main/res/raw/`, which are committed; running it again gives identical files. They follow the phone's media volume and stay quiet when the phone is on silent or vibrate. To turn them off in the app: **Home → Settings → Sound**.
+The sound effects are Kenney's free CC0 sounds (see `assets/sounds/CREDITS.md`). `npm run sounds` converts the sources in `assets/sounds/source/` into the files the app plays in `android/app/src/main/res/raw/` (needs ffmpeg); the converted files are committed. They follow the phone's media volume and stay quiet when the phone is on silent or vibrate. To turn them off in the app: **Home → Settings → Sound**.
 
 ## Known limits
 

@@ -60,6 +60,7 @@ export function normalizeGame(raw: any): Game {
                   responses: pending.block.responses ?? {},
                 }
               : null,
+            failedBlockers: { ...(pending.failedBlockers ?? {}) },
             loseInfluence: pending.loseInfluence ?? null,
             exchangeOptions: pending.exchangeOptions
               ? toArray(pending.exchangeOptions)

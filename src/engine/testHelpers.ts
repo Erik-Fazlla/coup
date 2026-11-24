@@ -67,6 +67,7 @@ export function makePending(
     responses: {},
     challengeResolved: false,
     block: null,
+    failedBlockers: {},
     loseInfluence: null,
     exchangeOptions: null,
     ...partial,

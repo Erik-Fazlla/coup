@@ -322,3 +322,123 @@ describe('after a bluffed block is exposed', () => {
     expect(done.state.currentTurnPlayer).toBe('c');
   });
 });
+
+describe('after a block has been exposed as a bluff', () => {
+  const hidden = (game: ReturnType<typeof makeGame>, id: string) =>
+    game.players[id].influence.filter(i => !i.revealed).length;
+
+  it('does not let the target block a steal a second time once the steal is proven', () => {
+    const game = makeGame(
+      {
+        a: ['Captain', 'Duke'],
+        b: ['Duke', 'Contessa'],
+        c: ['Duke', 'Assassin'],
+      },
+      { deck: ['Contessa', 'Assassin', 'Ambassador'] },
+    );
+    const blockExposed = play(
+      game,
+      { type: 'steal', playerId: 'a', target: 'c' },
+      { type: 'block', playerId: 'c', claim: 'Captain' },
+      { type: 'challenge', playerId: 'b' },
+      { type: 'loseInfluence', playerId: 'c', cardIndex: 0 },
+    );
+    expect(blockExposed.state.phase).toBe('awaitingResponses');
+    expect(blockExposed.state.pending?.failedBlockers).toEqual({ c: true });
+    expect(pendingResponders(blockExposed)).toEqual(['b']);
+
+    const done = play(
+      blockExposed,
+      { type: 'challenge', playerId: 'b' },
+      { type: 'loseInfluence', playerId: 'b', cardIndex: 0 },
+    );
+    // The steal goes through: c is not asked again and cannot block.
+    expect(done.state.phase).toBe('action');
+    expect(done.state.pending).toBeNull();
+    expect(done.state.currentTurnPlayer).toBe('b');
+    expect(done.players.a.coins).toBe(4);
+    expect(done.players.c.coins).toBe(0);
+    expect(done.state.lastAction?.blocked).toBe(false);
+    // c lost exactly the one card for the bluff, b the one for the failed challenge.
+    expect(hidden(done, 'c')).toBe(1);
+    expect(hidden(done, 'b')).toBe(1);
+    expect(hidden(done, 'a')).toBe(2);
+  });
+
+  it('does not let the target block an assassination a second time once the Assassin is proven', () => {
+    const game = makeGame(
+      {
+        a: ['Assassin', 'Duke'],
+        b: ['Duke', 'Captain'],
+        c: ['Duke', 'Captain'],
+      },
+      { coins: { a: 3 }, deck: ['Contessa', 'Ambassador', 'Ambassador'] },
+    );
+    const blockExposed = play(
+      game,
+      { type: 'assassinate', playerId: 'a', target: 'c' },
+      { type: 'block', playerId: 'c', claim: 'Contessa' },
+      { type: 'challenge', playerId: 'b' },
+      { type: 'loseInfluence', playerId: 'c', cardIndex: 0 },
+    );
+    expect(blockExposed.state.phase).toBe('awaitingResponses');
+    expect(responseOptions(blockExposed, 'c')).toBeNull();
+
+    const afterChallenge = play(blockExposed, {
+      type: 'challenge',
+      playerId: 'b',
+    });
+    expect(afterChallenge.state.pending?.loseInfluence).toEqual({
+      playerId: 'b',
+      next: 'afterFailedChallenge',
+    });
+    const done = play(afterChallenge, {
+      type: 'loseInfluence',
+      playerId: 'b',
+      cardIndex: 0,
+    });
+    // The assassination resolves: c lost one card for the bluff and one to the Assassin.
+    expect(hidden(done, 'c')).toBe(0);
+    expect(done.players.c.eliminatedAt).toBe(1);
+    expect(hidden(done, 'b')).toBe(1);
+    expect(hidden(done, 'a')).toBe(2);
+    expect(done.players.a.coins).toBe(0);
+    expect(done.state.phase).toBe('action');
+    expect(done.state.currentTurnPlayer).toBe('b');
+  });
+
+  it('lets another player block foreign aid, but not the one whose Duke was exposed', () => {
+    const game = makeGame({
+      a: ['Captain', 'Assassin'],
+      b: ['Captain', 'Assassin'],
+      c: ['Duke', 'Captain'],
+    });
+    const blockExposed = play(
+      game,
+      { type: 'foreignAid', playerId: 'a' },
+      { type: 'block', playerId: 'b', claim: 'Duke' },
+      { type: 'challenge', playerId: 'c' },
+      { type: 'loseInfluence', playerId: 'b', cardIndex: 0 },
+    );
+    expect(blockExposed.state.phase).toBe('awaitingResponses');
+    expect(blockExposed.state.pending?.failedBlockers).toEqual({ b: true });
+    expect(responseOptions(blockExposed, 'b')).toBeNull();
+    expect(() =>
+      play(blockExposed, { type: 'block', playerId: 'b', claim: 'Duke' }),
+    ).toThrow('You cannot block now');
+    expect(responseOptions(blockExposed, 'c')).toEqual({
+      canChallenge: false,
+      blockClaims: ['Duke'],
+    });
+
+    const blocked = play(
+      blockExposed,
+      { type: 'block', playerId: 'c', claim: 'Duke' },
+      { type: 'pass', playerId: 'a' },
+      { type: 'pass', playerId: 'b' },
+    );
+    expect(blocked.state.lastAction?.blocked).toBe(true);
+    expect(blocked.players.a.coins).toBe(2);
+    expect(blocked.state.currentTurnPlayer).toBe('b');
+  });
+});

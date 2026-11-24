@@ -111,6 +111,7 @@ export function responseOptions(
   const claims = BLOCK_CLAIMS[pending.action];
   const mayBlock =
     claims.length > 0 &&
+    !pending.failedBlockers[playerId] &&
     (pending.action === 'foreignAid' || pending.target === playerId);
   return {
     canChallenge: pending.claim !== null && !pending.challengeResolved,

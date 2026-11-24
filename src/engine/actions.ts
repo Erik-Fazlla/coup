@@ -151,12 +151,13 @@ function runContinuation(g: Game, next: Continuation, rng: Rng): void {
       return resolveAction(g, rng);
     }
     case 'afterFailedChallenge': {
-      // The claim was proven, but the target may still block.
+      // The claim was proven, but the target may still block, unless their block already failed.
       const pending = g.state.pending!;
       const targetMayBlock =
         BLOCK_CLAIMS[pending.action].length > 0 &&
         pending.target !== null &&
-        isAlive(g, pending.target);
+        isAlive(g, pending.target) &&
+        !pending.failedBlockers[pending.target];
       if (targetMayBlock) {
         pending.challengeResolved = true;
         pending.responses = {};
@@ -235,6 +236,7 @@ function declare(g: Game, action: DeclareAction, rng: Rng): void {
     responses: {},
     challengeResolved: false,
     block: null,
+    failedBlockers: {},
     loseInfluence: null,
     exchangeOptions: null,
   };
@@ -348,6 +350,7 @@ function challenge(g: Game, challengerId: string, rng: Rng): void {
     log(g, `${challenger} challenges ${blocker}, who was bluffing`);
     pending.block = null;
     pending.responses[blockClaim.blocker] = 'pass';
+    pending.failedBlockers[blockClaim.blocker] = true;
     return requireLoseInfluence(
       g,
       blockClaim.blocker,

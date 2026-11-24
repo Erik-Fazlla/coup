@@ -1568,6 +1568,7 @@ describe('10. Firebase round trip', () => {
     expect(game.state.pending?.block).toBeNull();
     expect(game.state.pending?.claim).toBeNull();
     expect(game.state.pending?.challengeResolved).toBe(false);
+    expect(game.state.pending?.failedBlockers).toEqual({});
     expect(game.players.b.influence.map(i => i.revealed)).toEqual([
       false,
       true,

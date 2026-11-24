@@ -52,6 +52,26 @@ describe('normalizeGame', () => {
     expect(normalizeGame(firebaseLike(game))).toEqual(game);
   });
 
+  it('round-trips a game that remembers a failed blocker', () => {
+    const start = makeGame(
+      {
+        a: ['Captain', 'Duke'],
+        b: ['Duke', 'Contessa'],
+        c: ['Duke', 'Assassin'],
+      },
+      { deck: ['Contessa', 'Assassin'] },
+    );
+    const game = play(
+      start,
+      { type: 'steal', playerId: 'a', target: 'c' },
+      { type: 'block', playerId: 'c', claim: 'Captain' },
+      { type: 'challenge', playerId: 'b' },
+      { type: 'loseInfluence', playerId: 'c', cardIndex: 0 },
+    );
+    expect(game.state.pending?.failedBlockers).toEqual({ c: true });
+    expect(normalizeGame(firebaseLike(game))).toEqual(game);
+  });
+
   it('round-trips a game waiting for a card to be lost', () => {
     const start = makeGame(
       { a: ['Duke', 'Captain'], b: ['Contessa', 'Assassin'] },

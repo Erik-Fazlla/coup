@@ -56,6 +56,8 @@ export interface Pending {
   /** True once a challenge against the action has failed; only a block by the target remains possible. */
   challengeResolved: boolean;
   block: Block | null;
+  /** Players whose block of this action was challenged and exposed as a bluff; they may not block it again. */
+  failedBlockers: Record<string, true>;
   loseInfluence: { playerId: string; next: Continuation } | null;
   exchangeOptions: Card[] | null;
 }

@@ -177,6 +177,13 @@ describe('soundCues', () => {
     expect(soundCues(exchanging, done, 'b')).toContain('card');
   });
 
+  it('never plays the deal for a mid-game snapshot after the lobby', () => {
+    const started = table();
+    const lobby: Game = { ...started, status: 'waiting' };
+    const moved = play(started, { type: 'income', playerId: 'me' });
+    expect(soundCues(lobby, moved, 'me')).not.toContain('deal');
+  });
+
   it('plays the deal when the lobby turns into a game', () => {
     const started = table();
     const lobby: Game = { ...started, status: 'waiting' };

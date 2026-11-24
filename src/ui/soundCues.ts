@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { Game, Player } from '../engine/types';
 import { seenAtOpen, unseenReveal } from './reveal';
+import { isDealSnapshot } from './tableMoments';
 import { playSound, SoundName } from './sound';
 import { buzzMoment } from './turnBuzz';
 
@@ -49,7 +50,8 @@ export function soundCues(
     previous &&
     previous.status === 'waiting' &&
     next.status === 'playing' &&
-    sameGame(previous, next)
+    sameGame(previous, next) &&
+    isDealSnapshot(next)
   ) {
     const opening = buzzMoment(next, playerId);
     const cues: SoundName[] = ['deal'];

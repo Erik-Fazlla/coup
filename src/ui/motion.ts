@@ -319,3 +319,67 @@ export function useCountTick(count: number) {
     ? { shown, tint, scale }
     : { shown: count, tint: null as CountTint, scale };
 }
+
+/**
+ * Cards arriving at the start of a game: fade and grow in after `delay` ms,
+ * once per `dealId` (a new id deals again). With no deal or motion off: shown as is.
+ */
+export function useDealIn(dealId: number | null, delay: number) {
+  const progress = useValue(1);
+  useEffect(() => {
+    if (dealId === null || !motionEnabled()) {
+      progress.setValue(1);
+      return;
+    }
+    progress.setValue(0);
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      delay,
+      duration: DURATION.slow,
+      easing: easeOut,
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => {
+      animation.stop();
+      progress.setValue(1);
+    };
+  }, [dealId, delay, progress]);
+  return {
+    opacity: progress,
+    transform: [
+      {
+        scale: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.6, 1],
+        }),
+      },
+    ],
+  };
+}
+
+/**
+ * A band of light crossing a surface once each time `active` turns true.
+ * Returns 0→1 progress to map onto a translateX, or null when nothing should be drawn.
+ */
+export function useSweep(active: boolean): Animated.Value | null {
+  const progress = useValue(1);
+  const [running, setRunning] = useState(false);
+  useEffect(() => {
+    if (!active || !motionEnabled()) {
+      setRunning(false);
+      return;
+    }
+    progress.setValue(0);
+    setRunning(true);
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: 550,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    });
+    animation.start(() => setRunning(false));
+    return () => animation.stop();
+  }, [active, progress]);
+  return running ? progress : null;
+}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Animated } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import { render } from '../../components/testUtils';
 import {
@@ -7,7 +8,9 @@ import {
   setMotionInstant,
   setReduceMotion,
   useCountTick,
+  useDealIn,
   useFlip,
+  useSweep,
 } from '../motion';
 
 afterEach(() => {
@@ -102,5 +105,93 @@ describe('useCountTick', () => {
     expect(current).toMatchObject({ shown: 0, tint: null });
     act(() => renderer.unmount());
     jest.useRealTimers();
+  });
+});
+
+/** The current number behind an animated value or interpolation. */
+const valueOf = (value: unknown): number =>
+  (value as { __getValue: () => number }).__getValue();
+
+describe('useDealIn', () => {
+  let style: ReturnType<typeof useDealIn>;
+
+  function Probe({ id, delay }: { id: number | null; delay: number }) {
+    style = useDealIn(id, delay);
+    return null;
+  }
+
+  it('shows the cards as they are when there is nothing to deal', () => {
+    setMotionInstant(false);
+    render(<Probe id={null} delay={0} />);
+    expect(valueOf(style.opacity)).toBe(1);
+    expect(valueOf(style.transform[0].scale)).toBe(1);
+  });
+
+  it('fades and grows the cards in for a new deal when motion is on', () => {
+    // Under Jest the native driver finishes without writing the value back,
+    // so the test checks the animation that is started rather than the end value.
+    const timing = jest.spyOn(Animated, 'timing');
+    setMotionInstant(false);
+    const renderer = render(<Probe id={5} delay={160} />);
+    expect(valueOf(style.opacity)).toBe(0);
+    expect(valueOf(style.transform[0].scale)).toBeCloseTo(0.6);
+    expect(timing).toHaveBeenCalledWith(
+      style.opacity,
+      expect.objectContaining({
+        toValue: 1,
+        delay: 160,
+        useNativeDriver: true,
+      }),
+    );
+    act(() => renderer.unmount());
+    timing.mockRestore();
+  });
+
+  it('deals again for a new deal id only', () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    setMotionInstant(false);
+    const renderer = render(<Probe id={5} delay={0} />);
+    act(() => {
+      renderer.update(<Probe id={5} delay={0} />);
+    });
+    expect(timing).toHaveBeenCalledTimes(1);
+    act(() => {
+      renderer.update(<Probe id={6} delay={0} />);
+    });
+    expect(timing).toHaveBeenCalledTimes(2);
+    act(() => renderer.unmount());
+    timing.mockRestore();
+  });
+
+  it('deals nothing with motion off', () => {
+    render(<Probe id={5} delay={160} />);
+    expect(valueOf(style.opacity)).toBe(1);
+  });
+});
+
+describe('useSweep', () => {
+  let sweep: Animated.Value | null;
+
+  function Probe({ active }: { active: boolean }) {
+    sweep = useSweep(active);
+    return null;
+  }
+
+  it('crosses once when it turns on with motion on', () => {
+    jest.useFakeTimers();
+    setMotionInstant(false);
+    const renderer = render(<Probe active />);
+    expect(sweep).not.toBeNull();
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+    expect(sweep).toBeNull();
+    act(() => renderer.unmount());
+    jest.useRealTimers();
+  });
+
+  it('draws nothing with motion off', () => {
+    render(<Probe active />);
+    expect(sweep).toBeNull();
   });
 });

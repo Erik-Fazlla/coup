@@ -1,6 +1,7 @@
 /**
  * Two scripted players join the lobby whose code is in BOT_CODE and play simply:
- * Income on their turn, pass on every prompt, give up their first card when asked.
+ * Income on their turn, pass on every prompt (or, with BOT_CHALLENGE=1, challenge every
+ * claimed character), give up their first card when asked.
  * They stop after BOT_MINUTES (default 10) or when the game is over. If the game is
  * still in the lobby at that point, they leave it before disconnecting.
  *
@@ -16,6 +17,7 @@ import { createGameService } from '../../src/firebase/gameService';
 
 const code = (process.env.BOT_CODE ?? '').trim().toUpperCase();
 const minutes = Number(process.env.BOT_MINUTES ?? '10');
+const challenging = process.env.BOT_CHALLENGE === '1';
 
 function bot(name: string) {
   const app = initializeApp(firebaseConfig, `bot-${name}`);
@@ -29,6 +31,19 @@ async function act(b: ReturnType<typeof bot>, gameId: string, game: Game) {
   const me = b.playerId;
   if (state.phase === 'action' && state.currentTurnPlayer === me) {
     await b.service.dispatch(gameId, { type: 'income', playerId: me });
+  } else if (
+    challenging &&
+    state.phase === 'awaitingResponses' &&
+    state.pending?.claim &&
+    !state.pending.challengeResolved &&
+    pendingResponders(game).includes(me)
+  ) {
+    // BOT_CHALLENGE=1: doubt every claimed character, to show the challenge scene.
+    await b.service.dispatch(gameId, {
+      type: 'challenge',
+      playerId: me,
+      seq: state.claimSeq,
+    });
   } else if (
     (state.phase === 'awaitingResponses' ||
       state.phase === 'awaitingBlockResponses') &&

@@ -217,6 +217,27 @@ describe('startGame', () => {
     );
   });
 
+  it('gives everyone 2 coins with three or more players', () => {
+    const game = startGame(lobby(3), 'p1', identityRng);
+    expect(game.playerOrder.map(id => game.players[id].coins)).toEqual([
+      2, 2, 2,
+    ]);
+  });
+
+  it('gives the starting player 1 coin and the other 2 in a two-player game', () => {
+    const game = startGame(lobby(2), 'p1', identityRng);
+    expect(game.state.currentTurnPlayer).toBe('p1');
+    expect(game.players.p1.coins).toBe(1);
+    expect(game.players.p2.coins).toBe(2);
+  });
+
+  it('gives 1 coin to whoever starts a two-player rematch round', () => {
+    const game = startGame({ ...lobby(2), round: 2 }, 'p1', identityRng);
+    expect(game.state.currentTurnPlayer).toBe('p2');
+    expect(game.players.p2.coins).toBe(1);
+    expect(game.players.p1.coins).toBe(2);
+  });
+
   it('cannot start twice', () => {
     const started = startGame(lobby(2), 'p1', identityRng);
     expect(() => startGame(started, 'p1', identityRng)).toThrow(

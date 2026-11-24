@@ -445,6 +445,10 @@ describe('2-Player Game Scenarios', () => {
         { type: 'tax', playerId: 'p1' },
         { type: 'pass', playerId: 'p2' },
         { type: 'income', playerId: 'p2' },
+        // p1 started on 1 coin (two-player rule), so one more tax is needed for the second coup.
+        { type: 'tax', playerId: 'p1' },
+        { type: 'pass', playerId: 'p2' },
+        { type: 'income', playerId: 'p2' },
         { type: 'coup', playerId: 'p1', target: 'p2' },
       );
       expect(end.status).toBe('finished');

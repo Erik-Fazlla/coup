@@ -210,6 +210,19 @@ describe('rematch', () => {
     expect(smaller.deck).toHaveLength(15 - 12);
   });
 
+  it('gives 1 coin to whoever starts the next round of a two-player game', () => {
+    const start = makeGame(
+      { a: ['Duke', 'Captain'], b: ['Contessa'] },
+      { coins: { a: 7 } },
+    );
+    const end = play(start, { type: 'coup', playerId: 'a', target: 'b' });
+    const second = startGame(rematch(end, 'a', identityRng), 'a', identityRng);
+    expect(second.round).toBe(2);
+    expect(second.state.currentTurnPlayer).toBe('b');
+    expect(second.players.b.coins).toBe(1);
+    expect(second.players.a.coins).toBe(2);
+  });
+
   it('lets the next round be played and counts a second win', () => {
     const lobby = rematch(finished(), 'a', identityRng);
     const second = startGame(lobby, 'a', identityRng);

@@ -167,11 +167,16 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
   });
   next.deck = deck;
   next.status = 'playing';
+  // The first turn moves one seat along each round (the host in round 1), wrapping round the table.
+  const firstPlayer =
+    next.playerOrder[(next.round - 1) % next.playerOrder.length];
+  // Official rule: in a two-player game whoever goes first starts with 1 coin instead of 2.
+  if (next.playerOrder.length === 2) {
+    next.players[firstPlayer].coins = 1;
+  }
   next.state = {
     phase: 'action',
-    // The first turn moves one seat along each round (the host in round 1), wrapping round the table.
-    currentTurnPlayer:
-      next.playerOrder[(next.round - 1) % next.playerOrder.length],
+    currentTurnPlayer: firstPlayer,
     turnNumber: 1,
     pending: null,
     lastAction: null,

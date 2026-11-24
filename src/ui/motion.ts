@@ -325,7 +325,8 @@ export function useCountTick(count: number) {
  * once per `dealId` (a new id deals again). With no deal or motion off: shown as is.
  */
 export function useDealIn(dealId: number | null, delay: number) {
-  const progress = useValue(1);
+  // Hidden from the very first render of a deal, so the cards never flash in full view.
+  const progress = useValue(dealId !== null && motionEnabled() ? 0 : 1);
   useEffect(() => {
     if (dealId === null || !motionEnabled()) {
       progress.setValue(1);

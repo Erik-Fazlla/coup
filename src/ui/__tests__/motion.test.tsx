@@ -128,6 +128,19 @@ describe('useDealIn', () => {
     expect(valueOf(style.transform[0].scale)).toBe(1);
   });
 
+  it('starts hidden on the very first render of a deal, before any effect runs', () => {
+    setMotionInstant(false);
+    const initial: number[] = [];
+    function First() {
+      const s = useDealIn(7, 0);
+      initial.push(valueOf(s.opacity));
+      return null;
+    }
+    const renderer = render(<First />);
+    expect(initial[0]).toBe(0);
+    act(() => renderer.unmount());
+  });
+
   it('fades and grows the cards in for a new deal when motion is on', () => {
     // Under Jest the native driver finishes without writing the value back,
     // so the test checks the animation that is started rather than the end value.

@@ -231,8 +231,12 @@ describe('startGame', () => {
     expect(game.players.p2.coins).toBe(2);
   });
 
-  it('gives 1 coin to whoever starts a two-player rematch round', () => {
-    const game = startGame({ ...lobby(2), round: 2 }, 'p1', identityRng);
+  it('gives 1 coin to the previous winner who starts a two-player rematch round', () => {
+    const game = startGame(
+      { ...lobby(2), round: 2, lastWinner: 'p2' },
+      'p1',
+      identityRng,
+    );
     expect(game.state.currentTurnPlayer).toBe('p2');
     expect(game.players.p2.coins).toBe(1);
     expect(game.players.p1.coins).toBe(2);

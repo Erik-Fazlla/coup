@@ -59,6 +59,7 @@ export function newGame(
     },
     log: [],
     winner: null,
+    lastWinner: null,
     createdAt: now,
     round: 1,
     scores: {},
@@ -167,9 +168,14 @@ export function startGame(game: Game, playerId: string, rng: Rng): Game {
   });
   next.deck = deck;
   next.status = 'playing';
-  // The first turn moves one seat along each round (the host in round 1), wrapping round the table.
+  // Official rule: the winner of the previous game starts the next one. Round 1 starts with the host.
+  // If that winner has since left, fall back to moving one seat along each round, wrapping round the table.
   const firstPlayer =
-    next.playerOrder[(next.round - 1) % next.playerOrder.length];
+    next.round > 1 &&
+    next.lastWinner !== null &&
+    next.playerOrder.includes(next.lastWinner)
+      ? next.lastWinner
+      : next.playerOrder[(next.round - 1) % next.playerOrder.length];
   // Official rule: in a two-player game whoever goes first starts with 1 coin instead of 2.
   if (next.playerOrder.length === 2) {
     next.players[firstPlayer].coins = 1;
@@ -208,6 +214,8 @@ export function rematch(game: Game, playerId: string, _rng: Rng): Game {
   next.status = 'waiting';
   next.deck = [];
   next.log = [];
+  // `winner` describes the finished round, so it is cleared; `lastWinner` carries it to the next startGame.
+  next.lastWinner = game.winner;
   next.winner = null;
   next.eliminations = [];
   // `revealSeq` is left alone so the next round's reveals carry ids no client has seen before.

@@ -110,6 +110,8 @@ export interface Game {
   state: GameState;
   log: string[];
   winner: string | null;
+  /** Who won the previous round. Set by a rematch (which clears `winner`) so the next round can start with them. */
+  lastWinner: string | null;
   createdAt: number;
   /** Which game of this lobby is being played; starts at 1 and goes up with every rematch. */
   round: number;

@@ -1,7 +1,7 @@
 import { addPlayer, kickPlayer, newGame, rematch } from '../lobby';
 import { normalizeGame } from '../serialize';
 import { identityRng, makeGame, play } from '../testHelpers';
-import { IllegalActionError } from '../types';
+import { Game, IllegalActionError } from '../types';
 
 /** Mimics what Realtime Database does to a value: nulls, empty arrays and empty objects vanish. */
 function firebaseLike(value: unknown): unknown {
@@ -133,6 +133,26 @@ describe('normalizeGame', () => {
       identityRng,
     );
     expect(normalizeGame(firebaseLike(lobby))).toEqual(lobby);
+  });
+
+  it('round-trips the previous winner a rematch lobby remembers', () => {
+    const start = makeGame(
+      { a: ['Duke', 'Captain'], b: ['Contessa'] },
+      { coins: { a: 7 } },
+    );
+    const lobby = rematch(
+      play(start, { type: 'coup', playerId: 'a', target: 'b' }),
+      'a',
+      identityRng,
+    );
+    expect(lobby.lastWinner).toBe('a');
+    expect(normalizeGame(firebaseLike(lobby)).lastWinner).toBe('a');
+  });
+
+  it('defaults lastWinner to null for games saved before it existed', () => {
+    const old: Partial<Game> = newGame('p1', 'P1', 'ABCDE', 1000);
+    delete old.lastWinner;
+    expect(normalizeGame(firebaseLike(old)).lastWinner).toBeNull();
   });
 
   it('round-trips a lobby with a kicked player', () => {

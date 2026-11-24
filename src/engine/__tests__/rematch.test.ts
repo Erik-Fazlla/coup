@@ -64,77 +64,83 @@ describe('rounds and scores', () => {
 });
 
 describe('who takes the first turn of a round', () => {
-  /** A waiting lobby of `ids` (the first is the host) that is about to play `round`. */
-  function lobbyForRound(ids: string[], round: number): Game {
+  /** A waiting lobby of `ids` (the first is the host) with `lastWinner` having won the round before. */
+  function lobbyFor(
+    ids: string[],
+    round = 1,
+    lastWinner: string | null = null,
+  ): Game {
     const lobby = ids
       .slice(1)
       .reduce(
         (game, id) => addPlayer(game, id, id.toUpperCase()),
         newGame(ids[0], ids[0].toUpperCase(), 'ABCDE', 0),
       );
-    return { ...lobby, round };
+    return { ...lobby, round, lastWinner };
   }
+  const start = (game: Game) =>
+    startGame(game, 'a', identityRng).state.currentTurnPlayer;
 
-  it.each([
-    [1, 'a'],
-    [2, 'b'],
-    [3, 'c'],
-  ])('round %i of three players starts with %s', (round, starter) => {
-    const started = startGame(
-      lobbyForRound(['a', 'b', 'c'], round),
-      'a',
-      identityRng,
-    );
-    expect(started.state.currentTurnPlayer).toBe(starter);
+  it('gives round 1 to the host', () => {
+    const started = startGame(lobbyFor(['a', 'b', 'c']), 'a', identityRng);
+    expect(started.state.currentTurnPlayer).toBe('a');
     expect(started.state.phase).toBe('action');
     expect(started.state.turnNumber).toBe(1);
   });
 
-  it('wraps back to the host after everyone has had a go', () => {
-    const start = (round: number) =>
-      startGame(lobbyForRound(['a', 'b', 'c'], round), 'a', identityRng).state
-        .currentTurnPlayer;
-    expect([4, 5, 6, 7].map(start)).toEqual(['a', 'b', 'c', 'a']);
-  });
+  it.each(['a', 'b', 'c'])(
+    'gives round 2 to the previous winner (%s) in a three-player game',
+    winner => {
+      expect(start(lobbyFor(['a', 'b', 'c'], 2, winner))).toBe(winner);
+    },
+  );
 
-  it('follows the players still in the lobby after someone leaves or is kicked', () => {
-    const four = lobbyForRound(['a', 'b', 'c', 'd'], 3);
-    const three = kickPlayer(four, 'a', 'b');
+  it('falls back to the old rotation when the previous winner has left', () => {
+    const four = { ...lobbyFor(['a', 'b', 'c', 'd'], 3, 'b') };
+    const three = removePlayer({ ...four, status: 'finished' }, 'b');
     expect(three.playerOrder).toEqual(['a', 'c', 'd']);
     // Round 3 of three players: index 2 of the remaining order.
-    expect(startGame(three, 'a', identityRng).state.currentTurnPlayer).toBe(
-      'd',
-    );
+    expect(start({ ...three, status: 'waiting' })).toBe('d');
   });
 
-  it('gives the first turn to the host in a two-player lobby, then alternates', () => {
-    const start = (round: number) =>
-      startGame(lobbyForRound(['a', 'b'], round), 'a', identityRng).state
-        .currentTurnPlayer;
-    expect([1, 2, 3, 4].map(start)).toEqual(['a', 'b', 'a', 'b']);
+  it('falls back to the old rotation when the previous winner was kicked', () => {
+    const three = kickPlayer(lobbyFor(['a', 'b', 'c', 'd'], 2, 'b'), 'a', 'b');
+    expect(start(three)).toBe('c');
   });
 
-  it('moves the first turn to the next player after a rematch', () => {
-    const first = startGame(
-      lobbyForRound(['a', 'b', 'c'], 1),
-      'a',
-      identityRng,
-    );
+  it('ignores a winner recorded for round 1', () => {
+    expect(start(lobbyFor(['a', 'b'], 1, 'b'))).toBe('a');
+  });
+
+  it('hands the first turn to the winner after a real rematch', () => {
+    const first = startGame(lobbyFor(['a', 'b', 'c']), 'a', identityRng);
     expect(first.state.currentTurnPlayer).toBe('a');
-    const second = startGame(
-      rematch(finished(), 'a', identityRng),
-      'a',
-      identityRng,
-    );
+    const end = {
+      ...finished(),
+      winner: 'c',
+    };
+    const lobby = rematch(end, 'a', identityRng);
+    expect(lobby.winner).toBeNull();
+    expect(lobby.lastWinner).toBe('c');
+    const second = startGame(lobby, 'a', identityRng);
     expect(second.round).toBe(2);
-    expect(second.state.currentTurnPlayer).toBe('b');
+    expect(second.state.currentTurnPlayer).toBe('c');
     // Only the starter can act first.
     expect(() => play(second, { type: 'income', playerId: 'a' })).toThrow(
       'It is not your turn',
     );
     expect(
-      play(second, { type: 'income', playerId: 'b' }).state.currentTurnPlayer,
-    ).toBe('c');
+      play(second, { type: 'income', playerId: 'c' }).state.currentTurnPlayer,
+    ).toBe('a');
+  });
+
+  it('keeps the winner as the starter through consecutive rounds', () => {
+    const second = startGame(
+      rematch(finished(), 'a', identityRng),
+      'a',
+      identityRng,
+    );
+    expect(second.state.currentTurnPlayer).toBe('a');
   });
 });
 
@@ -186,12 +192,12 @@ describe('rematch', () => {
 
     const second = startGame(lobby, 'a', identityRng);
     expect(second.state.claimSeq).toBe(end.state.claimSeq);
-    // Round 2 starts with b, the next player after the host.
-    const asked = play(second, { type: 'tax', playerId: 'b' });
+    // Round 2 starts with a, who won round 1.
+    const asked = play(second, { type: 'tax', playerId: 'a' });
     expect(asked.state.claimSeq).toBe(end.state.claimSeq + 1);
     // A tap left over from the previous round carries a seq that can never be current again.
     expect(() =>
-      play(asked, { type: 'pass', playerId: 'a', seq: end.state.claimSeq }),
+      play(asked, { type: 'pass', playerId: 'b', seq: end.state.claimSeq }),
     ).toThrow('Too late: the game has moved on');
   });
 
@@ -216,11 +222,12 @@ describe('rematch', () => {
       { coins: { a: 7 } },
     );
     const end = play(start, { type: 'coup', playerId: 'a', target: 'b' });
+    expect(end.winner).toBe('a');
     const second = startGame(rematch(end, 'a', identityRng), 'a', identityRng);
     expect(second.round).toBe(2);
-    expect(second.state.currentTurnPlayer).toBe('b');
-    expect(second.players.b.coins).toBe(1);
-    expect(second.players.a.coins).toBe(2);
+    expect(second.state.currentTurnPlayer).toBe('a');
+    expect(second.players.a.coins).toBe(1);
+    expect(second.players.b.coins).toBe(2);
   });
 
   it('lets the next round be played and counts a second win', () => {
@@ -251,11 +258,9 @@ describe('rematch', () => {
         },
       },
     };
-    // Round 2 starts with b, so a's first turn comes after b's.
+    // Round 2 starts with a, the winner of round 1.
     const end = play(
       rich,
-      { type: 'income', playerId: 'b' },
-      { type: 'income', playerId: 'c' },
       { type: 'coup', playerId: 'a', target: 'b' },
       { type: 'income', playerId: 'c' },
       { type: 'coup', playerId: 'a', target: 'c' },
@@ -352,8 +357,8 @@ describe('leaving once the game is over', () => {
 
     const second = startGame(lobby, 'a', identityRng);
     expect(second.playerOrder).toEqual(['a', 'c']);
-    // Round 2 of the two who stayed: the first turn can only go to one of them.
-    expect(second.state.currentTurnPlayer).toBe('c');
+    // The round 1 winner (a) starts round 2.
+    expect(second.state.currentTurnPlayer).toBe('a');
     expect(second.players.b).toBeUndefined();
   });
 

@@ -81,3 +81,6 @@ yarn-error.log
 android/keystore.properties
 android/build-release.log
 dist/
+
+# Brainstorming mockups (visual companion)
+.superpowers/

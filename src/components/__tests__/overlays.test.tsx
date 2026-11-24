@@ -1,5 +1,5 @@
 import React from 'react';
-import { BackHandler, ScrollView, StyleSheet } from 'react-native';
+import { Animated, BackHandler, ScrollView, StyleSheet } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
   ACTION_DETAIL,
@@ -15,6 +15,8 @@ import {
 } from '../../engine/rules';
 import { makeGame, play } from '../../engine/testHelpers';
 import { ActionType, CARDS, Game, Player } from '../../engine/types';
+import { colors, glow, neon } from '../../theme';
+import { setMotionInstant } from '../../ui/motion';
 import { ExchangePicker } from '../ExchangePicker';
 import { OnlineDot } from '../OnlineDot';
 import { ResponseBar } from '../ResponseBar';
@@ -239,8 +241,89 @@ describe('RevealOverlay', () => {
         onDismiss={jest.fn()}
       />,
     );
-    expect(texts(renderer)).toContain('TRUE CLAIM');
+    expect(texts(renderer)).toContain('TRUE');
     expect(texts(renderer)).not.toContain('BLUFF');
+  });
+
+  const stamp = (renderer: ReactTestRenderer) => host(renderer, 'reveal-stamp');
+  const stampText = (renderer: ReactTestRenderer) =>
+    flat(
+      renderer.root.find(
+        node =>
+          (node.type as unknown) === 'Text' &&
+          (node.props.children === 'TRUE' || node.props.children === 'BLUFF'),
+      ).props.style,
+    );
+
+  it('lands a TRUE or BLUFF stamp in cyan or red', () => {
+    const truthful = overlay({ truthful: true, card: 'Captain' });
+    expect(stamp(truthful)).toBeDefined();
+    expect(texts(truthful)).toContain('TRUE');
+    expect(texts(truthful)).not.toContain('TRUE CLAIM');
+    expect(stampText(truthful).color).toBe(neon.cyan);
+    expect(flat(stamp(truthful).props.style).borderColor).toBe(neon.cyan);
+
+    const bluff = overlay({ truthful: false });
+    expect(texts(bluff)).toContain('BLUFF');
+    expect(stampText(bluff).color).toBe(colors.danger);
+    expect(flat(stamp(bluff).props.style).borderColor).toBe(colors.danger);
+  });
+
+  it('frames the card in neon', () => {
+    const view = host(overlay({}), 'reveal-overlay');
+    expect(flat(view.props.style)).toMatchObject({
+      borderColor: neon.cyan,
+      boxShadow: glow.cyan,
+    });
+  });
+
+  it('keeps its accessibility label', () => {
+    const view = host(overlay({}), 'reveal-overlay');
+    expect(view.props.accessibilityLabel).toBe(
+      'Maria was bluffing — no Duke. Maria loses a card. Tap to dismiss',
+    );
+  });
+
+  it('shows the stamp at once with motion off', () => {
+    expect(flat(stamp(overlay({})).props.style).opacity).toBe(1);
+    expect(flat(host(overlay({}), 'reveal-overlay').props.style).opacity).toBe(
+      1,
+    );
+  });
+
+  describe('with motion on', () => {
+    beforeEach(() => {
+      setMotionInstant(false);
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      setMotionInstant(true);
+      jest.useRealTimers();
+    });
+
+    it('turns the card over, then lands the stamp', () => {
+      // Under Jest the native driver finishes without writing the value back,
+      // so the test checks the start state and the animation that is started.
+      const timing = jest.spyOn(Animated, 'timing');
+      const renderer = overlay({});
+      expect(flat(stamp(renderer).props.style).opacity).toBe(0);
+      expect(flat(host(renderer, 'reveal-overlay').props.style).opacity).toBe(
+        0,
+      );
+      expect(timing).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      );
+      act(() => {
+        jest.advanceTimersByTime(1000);
+      });
+      act(() => renderer.unmount());
+      timing.mockRestore();
+    });
   });
 });
 

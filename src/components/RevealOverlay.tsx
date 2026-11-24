@@ -1,22 +1,60 @@
-import React from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Card } from '../engine/types';
 import {
   characterColors,
   colors,
+  glow,
+  neon,
   radius,
   READING_FONT_SCALE,
   spacing,
   typography,
 } from '../theme';
-import { useAppear } from '../ui/motion';
+import { motionEnabled } from '../ui/motion';
+import { CardShade } from './CardShade';
 import { CharacterGlyph } from './CharacterGlyph';
 
 const GLYPH = 56;
 const GLYPH_COMPACT = 40;
 const WELL_MARGIN = 28;
 
+const SCENE_MS = 800;
+
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** 0 → 1 over the scene, started on mount; already 1 with motion off. */
+function useScene(): Animated.Value {
+  const progress = useRef(new Animated.Value(motionEnabled() ? 0 : 1)).current;
+  useEffect(() => {
+    if (!motionEnabled()) {
+      progress.setValue(1);
+      return;
+    }
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: SCENE_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+  return progress;
+}
+
+const part = (
+  progress: Animated.Value,
+  inputRange: number[],
+  outputRange: number[],
+) => progress.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
 
 interface Props {
   /** The character that was claimed and challenged. */
@@ -53,7 +91,20 @@ export function RevealOverlay({
   onDismiss,
 }: Props) {
   const palette = characterColors[card];
-  const appear = useAppear();
+  const progress = useScene();
+  // The card turns over into view, then the verdict is stamped on it.
+  const cardIn = {
+    opacity: part(progress, [0, 0.2], [0, 1]),
+    transform: [{ scaleX: part(progress, [0, 0.35], [0.05, 1]) }],
+  };
+  const stampIn = {
+    opacity: part(progress, [0.45, 0.6], [0, 1]),
+    transform: [
+      { scale: part(progress, [0.45, 0.7], [1.8, 1]) },
+      { rotate: '-10deg' },
+    ],
+  };
+  const verdictColor = truthful ? neon.cyan : colors.danger;
   const glyph = compact ? GLYPH_COMPACT : GLYPH;
   const well = glyph + WELL_MARGIN;
   return (
@@ -77,10 +128,11 @@ export function RevealOverlay({
           style={[
             styles.card,
             compact && styles.cardCompact,
-            { backgroundColor: palette.fill, borderColor: palette.accent },
-            appear,
+            { backgroundColor: palette.fill },
+            cardIn,
           ]}
         >
+          <CardShade />
           <View
             style={[
               styles.well,
@@ -101,12 +153,6 @@ export function RevealOverlay({
           </View>
           <View style={compact ? styles.wordsCompact : styles.words}>
             <Text
-              style={[styles.verdict, { color: palette.accent }]}
-              maxFontSizeMultiplier={READING_FONT_SCALE}
-            >
-              {truthful ? 'TRUE CLAIM' : 'BLUFF'}
-            </Text>
-            <Text
               style={[styles.headline, compact && styles.headlineCompact]}
               numberOfLines={compact ? 2 : 3}
               adjustsFontSizeToFit
@@ -123,6 +169,27 @@ export function RevealOverlay({
               {consequence}
             </Text>
           </View>
+          <Animated.View
+            testID="reveal-stamp"
+            pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
+            style={[
+              styles.stamp,
+              truthful ? styles.stampTrue : styles.stampBluff,
+              stampIn,
+            ]}
+          >
+            <Text
+              style={[
+                styles.stampText,
+                { color: verdictColor, textShadowColor: verdictColor },
+              ]}
+              maxFontSizeMultiplier={READING_FONT_SCALE}
+            >
+              {truthful ? 'TRUE' : 'BLUFF'}
+            </Text>
+          </Animated.View>
         </AnimatedPressable>
       </View>
     </View>
@@ -154,7 +221,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.lg,
     borderRadius: radius.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    borderColor: neon.cyan,
+    boxShadow: glow.cyan,
   },
   cardCompact: {
     maxWidth: 420,
@@ -182,7 +251,24 @@ const styles = StyleSheet.create({
   words: { alignSelf: 'stretch', alignItems: 'center' },
   // Beside the emblem: takes the rest of the row (the card's width is definite) and may shrink.
   wordsCompact: { flex: 1 },
-  verdict: { ...typography.micro, marginBottom: spacing.xs },
+  // Stamped over the top-right corner of the card, at a slant.
+  stamp: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    borderWidth: 2.5,
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+  },
+  stampTrue: { borderColor: neon.cyan },
+  stampBluff: { borderColor: colors.danger },
+  stampText: {
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: 3,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
+  },
   headline: {
     ...typography.title,
     color: colors.text,

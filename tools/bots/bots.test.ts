@@ -1,7 +1,8 @@
 /**
  * Two scripted players join the lobby whose code is in BOT_CODE and play simply:
  * Income on their turn, pass on every prompt, give up their first card when asked.
- * They stop after BOT_MINUTES (default 10) or when the game is over, then leave.
+ * They stop after BOT_MINUTES (default 10) or when the game is over. If the game is
+ * still in the lobby at that point, they leave it before disconnecting.
  *
  *   BOT_CODE=ABCDE npx jest --config jest.bots.config.js
  */
@@ -58,26 +59,39 @@ it('plays as two extra players', async () => {
     bots.map(b => b.service.joinGame(code, b.playerId, b.name)),
   );
   const stops: Array<() => void> = [];
+  const lastGames: Array<Game | null> = bots.map(() => null);
   await new Promise<void>(resolve => {
     const end = setTimeout(resolve, minutes * 60 * 1000);
     bots.forEach((b, i) => {
       let busy = false;
+      let latest: Game | null = null;
+      // Snapshots that arrive while the bot is busy are kept (only the newest), and
+      // handled as soon as it is free: its own move may have produced a state it must act on.
+      const run = () => {
+        if (busy || !latest) return;
+        const game = latest;
+        latest = null;
+        busy = true;
+        act(b, gameIds[i], game)
+          .catch(error => console.warn(`${b.name}: ${error}`))
+          .finally(() => {
+            busy = false;
+            run();
+          });
+      };
       stops.push(
         b.service.subscribe(
           gameIds[i],
           game => {
             if (!game || game.status === 'finished') {
+              lastGames[i] = game;
               clearTimeout(end);
               resolve();
               return;
             }
-            if (busy) return;
-            busy = true;
-            act(b, gameIds[i], game)
-              .catch(error => console.warn(`${b.name}: ${error}`))
-              .finally(() => {
-                busy = false;
-              });
+            lastGames[i] = game;
+            latest = game;
+            run();
           },
           error => console.warn(`${b.name}: ${error}`),
         ),
@@ -85,5 +99,13 @@ it('plays as two extra players', async () => {
     });
   });
   stops.forEach(stop => stop());
+  // Leave a lobby that never started, so the bots do not linger as players.
+  await Promise.all(
+    bots.map(async (b, i) => {
+      if (lastGames[i]?.status === 'waiting') {
+        await b.service.leaveLobby(gameIds[i], b.playerId);
+      }
+    }),
+  );
   await Promise.all(bots.map(b => deleteApp(b.app)));
 });

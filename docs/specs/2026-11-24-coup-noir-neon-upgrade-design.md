@@ -128,7 +128,7 @@ Each step is its own commit series and its own installable APK, so it can be tes
 - `npm run typecheck`, `npm run lint` and all Jest suites stay green at every step.
 - New unit tests: `tableMoments` (every moment, the first-snapshot rule, no hidden card names), the extended `soundCues`, and a check that every sound name has a file.
 - Render tests for the restyled building blocks (what is shown, what is pressable, disabled states) and for the scenes (they end, they skip on tap, they yield to a required response, nothing plays with motion off).
-- On the emulator: a real 3-player game, the app on the emulator plus two scripted players that join and act through the app's own `gameService` against the Realtime Database emulator (the `npm run test:sync` setup). Recorded with `screenrecord` and checked frame by frame for each moment.
+- On the emulator: a real 3-player game, the app on the emulator plus two scripted players (`tools/bots`) that join and act through the app's own `gameService`. They use the app's real Firebase project, like two extra phones would, because pointing the app at the database emulator would mean changing `src/firebase`. Recorded with `screenrecord` and checked frame by frame for each moment.
 - Final check by Erik on his phone after each step.
 
 ## Out of scope

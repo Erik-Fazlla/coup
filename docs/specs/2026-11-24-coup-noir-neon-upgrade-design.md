@@ -28,7 +28,7 @@ The intro clips and the new name screen gave Coup a strong identity: a noir spy 
 - **Hidden information**: an opponent's unrevealed card is never rendered, logged or put in an accessibility label. Face-down cards show only the card back.
 - **Reduce motion** (system setting) and Jest keep using the existing switch in `src/ui/motion.ts`: with motion off, every animation is skipped and the end state shows at once.
 - **Never block play.** Quick effects never delay or intercept a tap. A scene may cover the table for at most ~1.2 s and never hides a prompt the local player must answer: if this player has to respond, the scene ends early or does not play.
-- **Images**: the first UI spec allowed no image assets. This upgrade allows a small number of decorative images made for this app (the shared background haze), still no official Coup artwork.
+- **Images**: the first UI spec allowed no image assets. This upgrade allows a small number of decorative images made for this app (the background haze and the card shading), still no official Coup artwork.
 - **Sounds**: only files whose licence allows use in a game without attribution (CC0). Every file is listed with its source and licence in `assets/sounds/CREDITS.md`.
 
 ## Part 1: The look
@@ -128,7 +128,7 @@ Each step is its own commit series and its own installable APK, so it can be tes
 - `npm run typecheck`, `npm run lint` and all Jest suites stay green at every step.
 - New unit tests: `tableMoments` (every moment, the first-snapshot rule, no hidden card names), the extended `soundCues`, and a check that every sound name has a file.
 - Render tests for the restyled building blocks (what is shown, what is pressable, disabled states) and for the scenes (they end, they skip on tap, they yield to a required response, nothing plays with motion off).
-- On the emulator: a real 3-player game (three app instances or the emulator plus the Realtime Database emulator, `npm run test:sync` setup) recorded with `screenrecord`, checked frame by frame for each moment.
+- On the emulator: a real 3-player game, the app on the emulator plus two scripted players that join and act through the app's own `gameService` against the Realtime Database emulator (the `npm run test:sync` setup). Recorded with `screenrecord` and checked frame by frame for each moment.
 - Final check by Erik on his phone after each step.
 
 ## Out of scope

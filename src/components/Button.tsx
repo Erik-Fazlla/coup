@@ -2,6 +2,8 @@ import React from 'react';
 import { Animated, Pressable, StyleSheet, Text } from 'react-native';
 import {
   colors,
+  glow,
+  neon,
   radius,
   READING_FONT_SCALE,
   spacing,
@@ -56,7 +58,8 @@ export function Button({
           <Text
             style={[
               styles.label,
-              variant !== 'secondary' && styles.labelOnLight,
+              variant === 'secondary' && styles.labelSecondary,
+              variant === 'danger' && styles.labelOnLight,
             ]}
             numberOfLines={1}
             maxFontSizeMultiplier={READING_FONT_SCALE}
@@ -85,14 +88,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primary: { backgroundColor: colors.primary, borderColor: colors.primary },
+  primary: {
+    backgroundColor: neon.blue,
+    borderColor: neon.cyan,
+    borderWidth: 1.5,
+    boxShadow: glow.blue,
+  },
   secondary: {
-    backgroundColor: colors.surfaceRaised,
+    backgroundColor: colors.background,
     borderColor: colors.borderStrong,
+    borderWidth: 1.5,
   },
   danger: { backgroundColor: colors.danger, borderColor: colors.danger },
-  pressed: { opacity: 0.8 },
-  disabled: { opacity: 0.35 },
-  label: { color: colors.text, fontSize: 15, fontWeight: '700' },
+  // A brighter glow under the finger instead of fading out.
+  pressed: { boxShadow: glow.cyan },
+  disabled: { opacity: 0.35, boxShadow: 'none' },
+  label: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  labelSecondary: { color: neon.mist },
   labelOnLight: { color: colors.onLight },
 });

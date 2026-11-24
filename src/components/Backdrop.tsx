@@ -24,7 +24,7 @@ export function Backdrop() {
         resizeMode="stretch"
         fadeDuration={0}
         style={{
-          position: 'absolute',
+          ...styles.haze,
           width: size,
           height: size,
           left: -size * 0.35,
@@ -36,6 +36,7 @@ export function Backdrop() {
 }
 
 const styles = StyleSheet.create({
+  haze: { position: 'absolute' },
   fill: {
     position: 'absolute',
     top: 0,

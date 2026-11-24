@@ -57,6 +57,7 @@ export function ActionTile({
       {({ pressed }) => (
         // The touch target keeps its size; only the face dips under the finger.
         <Animated.View
+          testID="tile-face"
           style={[
             styles.tile,
             { backgroundColor: palette.fill },

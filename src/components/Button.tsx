@@ -47,6 +47,7 @@ export function Button({
       {({ pressed }) => (
         // The touch target keeps its size; only the face dips under the finger.
         <Animated.View
+          testID="button-face"
           style={[
             styles.face,
             styles[variant],

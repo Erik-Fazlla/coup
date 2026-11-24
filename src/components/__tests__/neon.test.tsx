@@ -47,6 +47,9 @@ describe('Screen backdrop', () => {
     const backdrop = host(renderer, 'backdrop');
     expect(flat(backdrop.props.style).position).toBe('absolute');
     expect(backdrop.props.pointerEvents).toBe('none');
+    expect(backdrop.props.importantForAccessibility).toBe(
+      'no-hide-descendants',
+    );
     expect(backdrop.findAllByType(Image)).toHaveLength(1);
     // The backdrop is the screen's first child, so everything else is drawn over it.
     expect(
@@ -84,13 +87,7 @@ describe('Panel', () => {
 describe('Button', () => {
   const face = (element: React.ReactElement) => {
     const renderer = render(element);
-    // The face is the one host view with rounded corners (the touch area has none).
-    const view = renderer.root.findAll(
-      node =>
-        typeof node.type === 'string' &&
-        node.props.style &&
-        flat(node.props.style).borderRadius !== undefined,
-    )[0];
+    const view = host(renderer, 'button-face');
     const label = renderer.root.findByType(Text);
     return { style: flat(view.props.style), label: flat(label.props.style) };
   };
@@ -197,12 +194,7 @@ describe('ActionTile', () => {
         onPress={() => {}}
       />,
     );
-    const face = renderer.root.findAll(
-      node =>
-        typeof node.type === 'string' &&
-        node.props.style &&
-        flat(node.props.style).borderRadius !== undefined,
-    )[0];
+    const face = host(renderer, 'tile-face');
     return { renderer, style: flat(face.props.style) };
   };
 
@@ -222,6 +214,9 @@ describe('ActionTile', () => {
 describe('CardShade', () => {
   it('stretches the shading image over the whole card, not its intrinsic width', () => {
     const renderer = render(<CardShade />);
+    const shade = host(renderer, 'card-shade');
+    expect(shade.props.pointerEvents).toBe('none');
+    expect(shade.props.importantForAccessibility).toBe('no-hide-descendants');
     const style = flat(renderer.root.findByType(Image).props.style);
     expect(style.width).toBe('100%');
     expect(style.height).toBe('100%');

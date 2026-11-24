@@ -18,10 +18,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video, { ResizeMode, VideoRef } from 'react-native-video';
 import { useProfile } from '../context/ProfileContext';
+import { useSettings } from '../context/SettingsContext';
 import { MAX_NAME_LENGTH } from '../engine/lobby';
 import { neon, READING_FONT_SCALE, spacing } from '../theme';
 import { useKeyboardInset } from '../ui/keyboard';
 import { motionEnabled, usePressScale } from '../ui/motion';
+import { playSound } from '../ui/sound';
 
 const INTRO = require('../../assets/video/clip1_intro.mp4');
 const OUTRO = require('../../assets/video/clip2_throw.mp4');
@@ -76,6 +78,7 @@ export function containedRect(width: number, height: number) {
  */
 export function WelcomeScreen({ onLeaving }: Props) {
   const { setName, startupError } = useProfile();
+  const { settings } = useSettings();
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();
   const window = useWindowDimensions();
@@ -154,8 +157,9 @@ export function WelcomeScreen({ onLeaving }: Props) {
         clearTimeout(outroTimer.current);
         outroTimer.current = null;
       }
-      // SOUND HOOK: a short "flash" sound effect could start here (when `flash` is true),
-      // through playSound() in src/ui/sound.ts, if settings.sound is on.
+      if (flash && settings.sound) {
+        playSound('flash');
+      }
       onLeaving?.(flash);
       try {
         await setName(name);
@@ -171,7 +175,7 @@ export function WelcomeScreen({ onLeaving }: Props) {
         showForm(0);
       }
     },
-    [name, onLeaving, setName, showForm],
+    [name, onLeaving, setName, settings.sound, showForm],
   );
 
   // Leaving the app mid-outro: skip the rest of it rather than resume a half-played clip.
@@ -200,8 +204,9 @@ export function WelcomeScreen({ onLeaving }: Props) {
     if (outroFailed) {
       return finish(false);
     }
-    // SOUND HOOK: a "whoosh" sound effect for the card throw could start here,
-    // through playSound() in src/ui/sound.ts, if settings.sound is on.
+    if (settings.sound) {
+      playSound('whoosh');
+    }
     if (motionEnabled()) {
       Animated.timing(form, {
         toValue: 0,

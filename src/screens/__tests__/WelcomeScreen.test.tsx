@@ -8,13 +8,22 @@ import {
   OUTRO_TIMEOUT_MS,
   WelcomeScreen,
 } from '../WelcomeScreen';
+import { playSound } from '../../ui/sound';
 
 const mockSetName = jest.fn();
 let mockStartupError: string | null = null;
+let mockSound = true;
 
 jest.mock('../../context/ProfileContext', () => ({
   useProfile: () => ({ setName: mockSetName, startupError: mockStartupError }),
 }));
+jest.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { sound: mockSound, vibration: true },
+    update: jest.fn(),
+  }),
+}));
+jest.mock('../../ui/sound', () => ({ playSound: jest.fn() }));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));
@@ -86,6 +95,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSetName.mockResolvedValue(undefined);
   mockStartupError = null;
+  mockSound = true;
   keyboard = fakeKeyboard();
   // Keeps the form's fall-back timer from firing after a test has finished.
   jest.useFakeTimers();
@@ -97,6 +107,28 @@ afterEach(() => {
 });
 
 describe('WelcomeScreen', () => {
+  it('plays the whoosh when the card is thrown and the flash when the clip ends', async () => {
+    const renderer = render(<WelcomeScreen />);
+    endIntro(renderer);
+    await typeAndContinue(renderer, 'Erik');
+    expect(playSound).toHaveBeenCalledWith('whoosh');
+    await act(async () => {
+      video(renderer, 'outro-video').props.onEnd();
+    });
+    expect(playSound).toHaveBeenLastCalledWith('flash');
+  });
+
+  it('stays silent with sound switched off', async () => {
+    mockSound = false;
+    const renderer = render(<WelcomeScreen />);
+    endIntro(renderer);
+    await typeAndContinue(renderer, 'Erik');
+    await act(async () => {
+      video(renderer, 'outro-video').props.onEnd();
+    });
+    expect(playSound).not.toHaveBeenCalled();
+  });
+
   it('plays only the intro at first, and never two videos at once', () => {
     const renderer = render(<WelcomeScreen />);
     expect(videosShown(renderer)).toEqual(['intro-video']);

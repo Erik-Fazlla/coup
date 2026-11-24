@@ -12,6 +12,8 @@ import { useProfile } from '../context/ProfileContext';
 import { winRate } from '../profile/profileStore';
 import {
   colors,
+  glowText,
+  neon,
   radius,
   READING_FONT_SCALE,
   spacing,
@@ -169,7 +171,8 @@ const styles = StyleSheet.create({
   you: { ...typography.micro, color: colors.primary },
   heading: {
     ...typography.title,
-    color: colors.text,
+    ...glowText,
+    color: neon.ice,
     marginBottom: spacing.xs,
   },
   // Three tiles fit a phone; on a narrow column or with large text they wrap instead of being cut off.

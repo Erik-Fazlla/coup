@@ -8,7 +8,13 @@ import { Screen } from '../components/Screen';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
 import { eliminationLines, revealLine } from '../engine/describe';
-import { colors, READING_FONT_SCALE, spacing, typography } from '../theme';
+import {
+  colors,
+  glowText,
+  READING_FONT_SCALE,
+  spacing,
+  typography,
+} from '../theme';
 import { useIsPortrait } from '../ui/orientation';
 import { useGameSounds } from '../ui/soundCues';
 
@@ -162,7 +168,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.md,
   },
-  titleWon: { color: colors.primary },
+  titleWon: { color: colors.primary, ...glowText },
   meta: {
     ...typography.body,
     color: colors.muted,

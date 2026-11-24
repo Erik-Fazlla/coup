@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Video, { ResizeMode, VideoRef } from 'react-native-video';
 import { useProfile } from '../context/ProfileContext';
 import { MAX_NAME_LENGTH } from '../engine/lobby';
-import { READING_FONT_SCALE, spacing } from '../theme';
+import { neon, READING_FONT_SCALE, spacing } from '../theme';
 import { useKeyboardInset } from '../ui/keyboard';
 import { motionEnabled, usePressScale } from '../ui/motion';
 
@@ -41,8 +41,8 @@ const FORM_FADE_OUT_MS = 180;
 /** The outro is about 3.7 s; past this the next screen opens whatever the video is doing. */
 export const OUTRO_TIMEOUT_MS = 6000;
 
-export const CYAN = '#00E5FF';
-export const ELECTRIC_BLUE = '#1E6BFF';
+const CYAN = neon.cyan;
+const ELECTRIC_BLUE = neon.blue;
 /** The colour of the outro's final frame: the next screen fades in from it. */
 export const OUTRO_FLASH_COLOR = '#FFFCFD';
 

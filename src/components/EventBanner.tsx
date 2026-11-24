@@ -9,13 +9,15 @@ import {
   TOUCH_MIN,
   typography,
 } from '../theme';
-import { useEnter } from '../ui/motion';
+import { useEnter, useSweep } from '../ui/motion';
 import { BANNER_MIN_HEIGHT } from './tableLayout';
 
 /** Below this height there is only room for the first line. */
 const TWO_LINES_FROM = 52;
 /** From this height the first line may wrap. */
 const WRAP_FROM = 76;
+/** Width of the band of light that crosses the banner when it becomes your turn. */
+const SWEEP_WIDTH = 90;
 
 interface Props {
   /** What the local player must do now, or who the table is waiting for. */
@@ -42,6 +44,7 @@ export function EventBanner({
   onPress,
 }: Props) {
   const [height, setHeight] = useState<number | null>(null);
+  const [width, setWidth] = useState(0);
   // An error takes the first line, the only one a short banner draws: on a small landscape
   // phone "Too late" would otherwise never be seen. What is asked moves down a line.
   const first = error ?? primary;
@@ -51,6 +54,8 @@ export function EventBanner({
   // A new line slides in, so the eye is drawn to what just changed.
   const primaryEnter = useEnter(first);
   const secondEnter = useEnter(second ?? null);
+  // A band of light crosses once when the table starts waiting for this player.
+  const sweep = useSweep(yours);
 
   return (
     <Pressable
@@ -60,7 +65,10 @@ export function EventBanner({
         .join('. ')}
       accessibilityLiveRegion="polite"
       onPress={onPress}
-      onLayout={event => setHeight(event.nativeEvent.layout.height)}
+      onLayout={event => {
+        setHeight(event.nativeEvent.layout.height);
+        setWidth(event.nativeEvent.layout.width);
+      }}
       testID="event-banner"
       style={({ pressed }) => [
         styles.banner,
@@ -96,11 +104,39 @@ export function EventBanner({
       <Text style={styles.log} maxFontSizeMultiplier={1}>
         LOG
       </Text>
+      {sweep && (
+        <Animated.View
+          pointerEvents="none"
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          style={[
+            styles.sweep,
+            {
+              transform: [
+                {
+                  translateX: sweep.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-SWEEP_WIDTH, width],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  sweep: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: SWEEP_WIDTH,
+    backgroundColor: 'rgba(0, 229, 255, 0.22)',
+  },
   banner: {
     flex: 1,
     minHeight: BANNER_MIN_HEIGHT,

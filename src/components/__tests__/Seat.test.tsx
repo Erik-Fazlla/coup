@@ -3,8 +3,17 @@ import { StyleSheet } from 'react-native';
 import { Card, Player } from '../../engine/types';
 import { CardBack } from '../CardBack';
 import { MiniCard } from '../MiniCard';
+import { PulseRing } from '../PulseRing';
 import { Seat, SeatTarget } from '../Seat';
-import { button, findButton, press, render, rendered } from '../testUtils';
+import { setMotionInstant } from '../../ui/motion';
+import {
+  button,
+  findButton,
+  press,
+  render,
+  rendered,
+  texts,
+} from '../testUtils';
 
 /** A card name that exists nowhere else, so finding it on screen can only be a leak. */
 const SECRET = 'Zzsecret' as Card;
@@ -231,5 +240,57 @@ describe('Seat', () => {
     );
     expect(name.props.numberOfLines).toBe(1);
     expect(name.props.ellipsizeMode).toBe('tail');
+  });
+});
+
+describe('Seat effects', () => {
+  beforeEach(() => {
+    setMotionInstant(false);
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    setMotionInstant(true);
+    jest.useRealTimers();
+  });
+
+  const activeRings = (renderer: ReturnType<typeof render>) =>
+    renderer.root.findAllByType(PulseRing).filter(ring => ring.props.active)
+      .length;
+
+  it('shows a coin change on the seat', () => {
+    const renderer = render(
+      <Seat
+        player={player()}
+        isTurn={false}
+        moment={{ id: 1, coins: 2, block: false }}
+      />,
+    );
+    expect(texts(renderer)).toContain('+2');
+  });
+
+  it('pulses for the player whose turn it is and for a target, and not otherwise', () => {
+    expect(activeRings(render(<Seat player={player()} isTurn />))).toBe(1);
+    expect(activeRings(render(<Seat player={player()} isTurn={false} />))).toBe(
+      0,
+    );
+    expect(
+      activeRings(
+        render(<Seat player={player()} isTurn={false} target={target()} />),
+      ),
+    ).toBe(1);
+  });
+
+  it('does not speak the effects', () => {
+    const plain = label(render(<Seat player={player()} isTurn={false} />));
+    const withMoment = label(
+      render(
+        <Seat
+          player={player()}
+          isTurn={false}
+          moment={{ id: 1, coins: 2, tag: 'TAX · Duke', block: true }}
+        />,
+      ),
+    );
+    expect(withMoment).toBe(plain);
   });
 });

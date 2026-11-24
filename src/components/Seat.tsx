@@ -2,12 +2,22 @@ import React from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { unrevealedCount } from '../engine/rules';
 import { Influence, Player } from '../engine/types';
-import { colors, DENSE_FONT_SCALE, glow, radius, typography } from '../theme';
-import { useFlip } from '../ui/motion';
+import {
+  colors,
+  DENSE_FONT_SCALE,
+  glow,
+  neon,
+  radius,
+  typography,
+} from '../theme';
+import { useDealIn, useFlip } from '../ui/motion';
+import { SeatMoment } from '../ui/tableMoments';
 import { CardBack } from './CardBack';
 import { Coins } from './Coins';
 import { MiniCard } from './MiniCard';
 import { OnlineDot } from './OnlineDot';
+import { PulseRing } from './PulseRing';
+import { SeatEffects } from './SeatEffects';
 import { SEAT_HEIGHT, SMALL_SEAT_NAME_BELOW } from './tableLayout';
 
 export interface SeatTarget {
@@ -29,6 +39,12 @@ interface Props {
   target?: SeatTarget | null;
   /** Whether this player's phone is connected; null or missing draws no dot. */
   online?: boolean | null;
+  /** This player's part of the latest table moments: a coin change, a claim or a block. */
+  moment?: SeatMoment | null;
+  /** Set while the cards are being dealt; each new id deals again. */
+  dealId?: number | null;
+  /** How long this seat waits before its cards arrive, so the deal goes round the table. */
+  dealDelay?: number;
   testID?: string;
 }
 
@@ -68,8 +84,12 @@ export function Seat({
   height = SEAT_HEIGHT,
   target = null,
   online = null,
+  moment = null,
+  dealId = null,
+  dealDelay = 0,
   testID,
 }: Props) {
+  const deal = useDealIn(dealId, dealDelay);
   const hidden = unrevealedCount(player);
   const lost = player.influence.filter(i => i.revealed).map(i => i.card);
   const out = hidden === 0;
@@ -136,12 +156,15 @@ export function Seat({
         ) : (
           <Coins count={player.coins} size="sm" />
         )}
-        <View style={styles.cards}>
+        <Animated.View style={[styles.cards, deal]}>
           {player.influence.map((influence, index) => (
             <SeatCard key={index} influence={influence} />
           ))}
-        </View>
+        </Animated.View>
       </View>
+      <PulseRing active={isTurn && !target} color={colors.coin} />
+      <PulseRing active={!!target} color={neon.cyan} />
+      <SeatEffects moment={moment} />
     </>
   );
 

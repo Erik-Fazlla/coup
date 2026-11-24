@@ -23,6 +23,7 @@ import { RevealOverlay } from '../components/RevealOverlay';
 import { RulesSheet } from '../components/RulesSheet';
 import { COMPACT_PADDING, Screen } from '../components/Screen';
 import { Seat } from '../components/Seat';
+import { SeatEffects } from '../components/SeatEffects';
 import {
   BANNER_MIN_HEIGHT,
   REGION_GAP,
@@ -56,11 +57,12 @@ import {
   spacing,
   typography,
 } from '../theme';
-import { usePulse } from '../ui/motion';
+import { useDealIn, usePulse } from '../ui/motion';
 import { isOnline, knownPresence } from '../ui/presence';
 import { useRevealOnce } from '../ui/reveal';
 import { useGameSounds } from '../ui/soundCues';
 import { useStalled, waitKey } from '../ui/stalled';
+import { dealId, seatMoment, useTableMoments } from '../ui/tableMoments';
 import { useTurnBuzz } from '../ui/turnBuzz';
 
 const HAND_PADDING = 6;
@@ -106,6 +108,12 @@ export function GameScreen() {
   useTurnBuzz(playing ? game : null, playerId, settings.vibration);
   // Sound effects for what each new snapshot brings, if they want those.
   useGameSounds(playing ? game : null, playerId);
+  // Short effects for what each new snapshot brings: coins, claims, blocks, the deal.
+  const moments = useTableMoments(playing ? game : null);
+  const deal = dealId(moments);
+  const opponentCount = game ? game.playerOrder.length - 1 : 0;
+  // The local hand is dealt last, after every seat.
+  const handDeal = useDealIn(deal, Math.min(opponentCount * 80, 640));
   const { reveal, dismiss: dismissReveal } = useRevealOnce(game);
   // Only the host's own clock matters: nobody else is offered the skip.
   const stalled = useStalled(isHost && playing ? waitKey(game) : null);
@@ -242,6 +250,9 @@ export function GameScreen() {
                     width={layout.seatWidth}
                     height={layout.seatHeight}
                     online={isOnline(presence, id)}
+                    moment={seatMoment(moments, id)}
+                    dealId={deal}
+                    dealDelay={opponents.indexOf(id) * 80}
                     target={
                       aiming && targets.includes(id)
                         ? {
@@ -330,7 +341,7 @@ export function GameScreen() {
                 </Text>
                 <Coins count={me.coins} size="md" />
               </View>
-              <View style={styles.handCards}>
+              <Animated.View style={[styles.handCards, handDeal]}>
                 {me.influence.map((influence, index) => (
                   <CharacterCard
                     key={index}
@@ -339,7 +350,8 @@ export function GameScreen() {
                     abilityLines={layout.handAbilityLines}
                   />
                 ))}
-              </View>
+              </Animated.View>
+              <SeatEffects moment={seatMoment(moments, playerId)} />
             </View>
 
             <View

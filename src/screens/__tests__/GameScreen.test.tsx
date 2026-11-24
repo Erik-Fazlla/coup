@@ -13,6 +13,7 @@ import { ResponseBar } from '../../components/ResponseBar';
 import { Seat } from '../../components/Seat';
 import { REGION_GAP, tableLayout } from '../../components/tableLayout';
 import { TopBar } from '../../components/TopBar';
+import { setMotionInstant } from '../../ui/motion';
 import { REVEAL_MS } from '../../ui/reveal';
 import { playSound } from '../../ui/sound';
 import { SKIP_AFTER_MS } from '../../ui/stalled';
@@ -975,5 +976,31 @@ describe('GameScreen hidden information with every overlay open', () => {
     press(renderer, 'rules');
     expect(rendered(renderer)).toContain('rules-sheet');
     expectNoLeak(renderer);
+  });
+});
+
+describe('GameScreen table effects', () => {
+  beforeEach(() => {
+    setMotionInstant(false);
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    mounted.splice(0).forEach(renderer => act(() => renderer.unmount()));
+    setMotionInstant(true);
+    jest.useRealTimers();
+  });
+
+  it('shows a coin change on the seat of the opponent who gained', () => {
+    const game = theirTurn();
+    const renderer = mount(game);
+    deliver(renderer, play(game, { type: 'income', playerId: 'other' }));
+    const seat = renderer.root.find(
+      node => node.type === Seat && node.props.testID === 'seat-other',
+    );
+    expect(
+      seat
+        .findAll(node => (node.type as unknown) === 'Text')
+        .map(node => node.props.children),
+    ).toContain('+1');
   });
 });

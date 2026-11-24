@@ -5,17 +5,23 @@ const MODULE_NAME = 'CoupSound';
 
 /**
  * Every sound effect. The files are made by `npm run sounds`
- * (scripts/generate-sounds.js) and played by CoupSoundModule.kt, which knows
- * the same names.
+ * (scripts/import-sounds.js, from the CC0 sources in assets/sounds/) and played
+ * by CoupSoundModule.kt, which knows the same names.
  */
 export const SOUND_NAMES = [
   'turn',
   'prompt',
   'coin',
+  'deal',
   'card',
-  'challenge',
-  'win',
-  'lose',
+  'revealTrue',
+  'revealBluff',
+  'cardLost',
+  'block',
+  'gameWon',
+  'gameLost',
+  'whoosh',
+  'flash',
 ] as const;
 
 export type SoundName = (typeof SOUND_NAMES)[number];

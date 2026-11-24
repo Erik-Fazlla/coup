@@ -36,6 +36,12 @@ jest.mock('../../context/GameContext', () => ({
 jest.mock('../../context/ProfileContext', () => ({
   useProfile: () => ({ playerId: mockPlayerId }),
 }));
+jest.mock('../../context/SettingsContext', () => ({
+  useSettings: () => ({
+    settings: { vibration: true, sound: true },
+    update: jest.fn(),
+  }),
+}));
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
 }));

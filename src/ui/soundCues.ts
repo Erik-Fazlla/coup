@@ -16,6 +16,11 @@ function sameRound(a: Game, b: Game): boolean {
   );
 }
 
+/** Whether two snapshots belong to the same game (the same lobby, later started). */
+function sameGame(a: Game, b: Game): boolean {
+  return a.code === b.code && a.createdAt === b.createdAt;
+}
+
 /**
  * The sounds to play, in order, when the game goes from `previous` to `next`
  * as seen by `playerId`. Each name appears at most once.
@@ -26,7 +31,11 @@ function sameRound(a: Game, b: Game): boolean {
  * waiting for this player. The phone buzzes at that same moment (`useTurnBuzz`),
  * so the round's first player gets both, not a buzz in silence.
  *
- * Order: challenge, card, coin, then turn or prompt, then win or lose.
+ * The lobby turning into a game (`waiting` then `playing`, same code and
+ * creation time) plays the deal, then the usual first-snapshot cue.
+ *
+ * Order: reveal (true or bluff), block, card lost, coin, card (an exchange
+ * finished), then turn or prompt, then game won or lost.
  */
 export function soundCues(
   previous: Game | null,
@@ -36,6 +45,19 @@ export function soundCues(
   if (previous === next) {
     return [];
   }
+  if (
+    previous &&
+    previous.status === 'waiting' &&
+    next.status === 'playing' &&
+    sameGame(previous, next)
+  ) {
+    const opening = buzzMoment(next, playerId);
+    const cues: SoundName[] = ['deal'];
+    if (opening) {
+      cues.push(opening.kind === 'turn' ? 'turn' : 'prompt');
+    }
+    return cues;
+  }
   if (!previous || !sameRound(previous, next)) {
     const opening = buzzMoment(next, playerId);
     return opening ? [opening.kind === 'turn' ? 'turn' : 'prompt'] : [];
@@ -44,8 +66,12 @@ export function soundCues(
   const ids = Object.keys(next.players).filter(id => previous.players[id]);
 
   // A challenge was settled: the same test the reveal overlay uses to appear.
-  if (unseenReveal(next, seenAtOpen(previous))) {
-    cues.push('challenge');
+  const reveal = unseenReveal(next, seenAtOpen(previous));
+  if (reveal) {
+    cues.push(reveal.truthful ? 'revealTrue' : 'revealBluff');
+  }
+  if (next.state.pending?.block && !previous.state.pending?.block) {
+    cues.push('block');
   }
   if (
     ids.some(
@@ -53,10 +79,13 @@ export function soundCues(
         revealedCount(next.players[id]) > revealedCount(previous.players[id]),
     )
   ) {
-    cues.push('card');
+    cues.push('cardLost');
   }
   if (ids.some(id => next.players[id].coins !== previous.players[id].coins)) {
     cues.push('coin');
+  }
+  if (previous.state.phase === 'exchange' && next.state.phase !== 'exchange') {
+    cues.push('card');
   }
 
   // The game now waits for this player: exactly when the phone would buzz.
@@ -71,7 +100,7 @@ export function soundCues(
     previous.status !== 'finished' &&
     next.players[playerId]
   ) {
-    cues.push(next.winner === playerId ? 'win' : 'lose');
+    cues.push(next.winner === playerId ? 'gameWon' : 'gameLost');
   }
   return cues;
 }
@@ -87,12 +116,18 @@ let handedOver: Game | null = null;
 function takeHandover(first: Game): Game | null {
   const previous = handedOver;
   handedOver = null;
-  return previous &&
+  if (!previous) {
+    return null;
+  }
+  const ended =
     previous.status === 'playing' &&
     first.status === 'finished' &&
-    sameRound(previous, first)
-    ? previous
-    : null;
+    sameRound(previous, first);
+  const started =
+    previous.status === 'waiting' &&
+    first.status === 'playing' &&
+    sameGame(previous, first);
+  return ended || started ? previous : null;
 }
 
 /**

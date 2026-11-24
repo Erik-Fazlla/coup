@@ -28,9 +28,23 @@ function ffmpegArgs(input, output, { seconds }) {
   const args = ['-y', '-v', 'error', '-i', input];
   if (seconds) {
     args.push('-t', String(seconds));
-    filters.push(`afade=t=out:st=${(seconds - FADE_SECONDS).toFixed(2)}:d=${FADE_SECONDS}`);
+    filters.push(
+      `afade=t=out:st=${(seconds - FADE_SECONDS).toFixed(2)}:d=${FADE_SECONDS}`,
+    );
   }
-  args.push('-af', filters.join(','), '-ar', '44100', '-ac', '1', '-c:a', 'libvorbis', '-q:a', '4', output);
+  args.push(
+    '-af',
+    filters.join(','),
+    '-ar',
+    '44100',
+    '-ac',
+    '1',
+    '-c:a',
+    'libvorbis',
+    '-q:a',
+    '4',
+    output,
+  );
   return args;
 }
 
@@ -42,7 +56,10 @@ function main() {
   }
   for (const [name, entry] of Object.entries(MANIFEST)) {
     const output = path.join(RAW_DIR, `${resourceName(name)}.ogg`);
-    execFileSync('ffmpeg', ffmpegArgs(path.join(SOURCE_DIR, entry.source), output, entry));
+    execFileSync(
+      'ffmpeg',
+      ffmpegArgs(path.join(SOURCE_DIR, entry.source), output, entry),
+    );
     console.log(`${name} -> ${path.relative(ROOT, output)}`);
   }
 }

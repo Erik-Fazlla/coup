@@ -1,6 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const { MANIFEST, RAW_DIR, resourceName, ffmpegArgs } = require('../import-sounds');
+const {
+  MANIFEST,
+  RAW_DIR,
+  resourceName,
+  ffmpegArgs,
+} = require('../import-sounds');
 
 describe('resourceName', () => {
   it('turns a JS sound name into an Android resource name', () => {
@@ -13,7 +18,9 @@ describe('resourceName', () => {
 describe('ffmpegArgs', () => {
   it('converts to mono OGG Vorbis at a matched loudness', () => {
     const args = ffmpegArgs('in.ogg', 'out.ogg', {});
-    expect(args).toEqual(expect.arrayContaining(['-ac', '1', '-c:a', 'libvorbis']));
+    expect(args).toEqual(
+      expect.arrayContaining(['-ac', '1', '-c:a', 'libvorbis']),
+    );
     expect(args.join(' ')).toContain('loudnorm');
     expect(args[args.length - 1]).toBe('out.ogg');
   });
@@ -28,13 +35,48 @@ describe('ffmpegArgs', () => {
 describe('the committed sounds', () => {
   it('has a source file for every manifest entry', () => {
     for (const entry of Object.values(MANIFEST)) {
-      expect(fs.existsSync(path.join(__dirname, '../../assets/sounds/source', entry.source))).toBe(true);
+      expect(
+        fs.existsSync(
+          path.join(__dirname, '../../assets/sounds/source', entry.source),
+        ),
+      ).toBe(true);
     }
   });
 
   it('has a converted file in res/raw for every manifest entry, and nothing left over', () => {
-    const expected = Object.keys(MANIFEST).map(name => `${resourceName(name)}.ogg`).sort();
-    const present = fs.readdirSync(RAW_DIR).filter(file => file.startsWith('sfx_')).sort();
+    const expected = Object.keys(MANIFEST)
+      .map(name => `${resourceName(name)}.ogg`)
+      .sort();
+    const present = fs
+      .readdirSync(RAW_DIR)
+      .filter(file => file.startsWith('sfx_'))
+      .sort();
     expect(present).toEqual(expected);
+  });
+});
+
+describe('the names the app knows', () => {
+  const soundTs = fs.readFileSync(
+    path.join(__dirname, '../../src/ui/sound.ts'),
+    'utf8',
+  );
+  const kotlin = fs.readFileSync(
+    path.join(
+      __dirname,
+      '../../android/app/src/main/java/com/coup/CoupSoundModule.kt',
+    ),
+    'utf8',
+  );
+
+  it('lists exactly the manifest sounds in SOUND_NAMES', () => {
+    const block = soundTs.match(/SOUND_NAMES = \[([\s\S]*?)\]/)[1];
+    const names = [...block.matchAll(/'(\w+)'/g)].map(m => m[1]).sort();
+    expect(names).toEqual(Object.keys(MANIFEST).sort());
+  });
+
+  it('maps every sound to its resource in the native module', () => {
+    for (const name of Object.keys(MANIFEST)) {
+      expect(kotlin).toContain(`"${name}" to R.raw.${resourceName(name)}`);
+    }
   });
 });

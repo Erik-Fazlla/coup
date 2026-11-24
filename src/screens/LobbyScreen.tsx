@@ -28,6 +28,7 @@ import {
 } from '../theme';
 import { useIsPortrait } from '../ui/orientation';
 import { isOnline, knownPresence } from '../ui/presence';
+import { useGameSounds } from '../ui/soundCues';
 
 /** Opens the system share sheet with the invitation. Closing it, or having nothing to share with, is not an error. */
 function shareCode(code: string) {
@@ -43,6 +44,8 @@ export function LobbyScreen() {
     useGame();
   const { playerId } = useProfile();
   const portrait = useIsPortrait();
+  // Lobby snapshots play nothing; this only hands the last one to the game screen, which plays the deal.
+  useGameSounds(game, playerId);
 
   if (!game) {
     return null;

@@ -135,6 +135,62 @@ describe('soundCues', () => {
     );
   });
 
+  it('plays revealTrue when the challenged claim was true', () => {
+    // I hold the Duke: my tax is honest, B's challenge fails.
+    const claimed = play(table(), { type: 'tax', playerId: 'me' });
+    const challenged = play(claimed, { type: 'challenge', playerId: 'b' });
+    expect(challenged.reveal?.truthful).toBe(true);
+    expect(soundCues(claimed, challenged, 'c')[0]).toBe('revealTrue');
+  });
+
+  it('plays block when a block is declared', () => {
+    // B steals from me; I block with my Captain.
+    const stolen = play(theirTurn(), {
+      type: 'steal',
+      playerId: 'b',
+      target: 'me',
+    });
+    const blocked = play(stolen, {
+      type: 'block',
+      playerId: 'me',
+      claim: 'Captain',
+    });
+    expect(blocked.state.pending?.block).toBeTruthy();
+    expect(soundCues(stolen, blocked, 'c')).toContain('block');
+    expect(soundCues(blocked, { ...blocked, log: [] }, 'c')).not.toContain(
+      'block',
+    );
+  });
+
+  it('plays card when an exchange is finished', () => {
+    const exchanging = play(
+      makeGame({ me: ['Ambassador', 'Duke'], b: ['Contessa', 'Assassin'] }),
+      { type: 'exchange', playerId: 'me' },
+      { type: 'pass', playerId: 'b' },
+    );
+    expect(exchanging.state.phase).toBe('exchange');
+    const done = play(exchanging, {
+      type: 'exchangeChoose',
+      playerId: 'me',
+      keep: [0, 1],
+    });
+    expect(soundCues(exchanging, done, 'b')).toContain('card');
+  });
+
+  it('plays the deal when the lobby turns into a game', () => {
+    const started = table();
+    const lobby: Game = { ...started, status: 'waiting' };
+    expect(soundCues(lobby, started, 'me')).toEqual(['deal', 'turn']);
+    expect(soundCues(lobby, started, 'b')).toEqual(['deal']);
+    // Not for another game.
+    expect(soundCues({ ...lobby, code: 'OTHER' }, started, 'b')).toEqual([]);
+  });
+
+  it('plays nothing for lobby snapshots', () => {
+    const lobby: Game = { ...table(), status: 'waiting' };
+    expect(soundCues(lobby, { ...lobby, log: ['x'] }, 'me')).toEqual([]);
+  });
+
   it('plays the coin when I gain coins, and nothing else on another player turn', () => {
     expect(cuesFor(table(), 'me', { type: 'income', playerId: 'me' })).toEqual([
       'coin',
@@ -190,7 +246,7 @@ describe('soundCues', () => {
     );
   });
 
-  it('plays the card when any card is lost', () => {
+  it('plays cardLost when any card is lost', () => {
     const couped = play(theirTurn(), {
       type: 'coup',
       playerId: 'b',
@@ -202,20 +258,20 @@ describe('soundCues', () => {
       cardIndex: 0,
     };
     // The turn passes to me in the same snapshot.
-    expect(cuesFor(couped, 'me', lose)).toEqual(['card', 'turn']);
-    expect(cuesFor(couped, 'b', lose)).toEqual(['card']);
-    expect(cuesFor(couped, 'c', lose)).toEqual(['card']);
+    expect(cuesFor(couped, 'me', lose)).toEqual(['cardLost', 'turn']);
+    expect(cuesFor(couped, 'b', lose)).toEqual(['cardLost']);
+    expect(cuesFor(couped, 'c', lose)).toEqual(['cardLost']);
   });
 
-  it('plays the challenge when a challenge is settled', () => {
+  it('plays revealBluff when a challenge catches a bluff', () => {
     const claimed = play(theirTurn(), { type: 'tax', playerId: 'b' });
     const challenged = play(claimed, { type: 'challenge', playerId: 'me' });
     expect(challenged.reveal?.id).toBe(1);
-    expect(soundCues(claimed, challenged, 'me')).toEqual(['challenge']);
-    expect(soundCues(claimed, challenged, 'c')).toEqual(['challenge']);
+    expect(soundCues(claimed, challenged, 'me')).toEqual(['revealBluff']);
+    expect(soundCues(claimed, challenged, 'c')).toEqual(['revealBluff']);
     // B was bluffing and must now choose a card to lose.
     expect(soundCues(claimed, challenged, 'b')).toEqual([
-      'challenge',
+      'revealBluff',
       'prompt',
     ]);
   });
@@ -232,10 +288,10 @@ describe('soundCues', () => {
       cardIndex: 0,
     });
     expect(after.reveal?.id).toBe(1);
-    expect(soundCues(challenged, after, 'c')).not.toContain('challenge');
+    expect(soundCues(challenged, after, 'c')).not.toContain('revealBluff');
   });
 
-  it('orders them challenge, card, coin, then turn', () => {
+  it('orders them reveal, card lost, coin, then turn', () => {
     const before = theirTurn();
     const after: Game = {
       ...table(),
@@ -254,8 +310,8 @@ describe('soundCues', () => {
     after.players.b.influence[0].revealed = true;
     after.players.c.coins = 5;
     expect(soundCues(before, after, 'me')).toEqual([
-      'challenge',
-      'card',
+      'revealBluff',
+      'cardLost',
       'coin',
       'turn',
     ]);
@@ -264,20 +320,28 @@ describe('soundCues', () => {
     expect(new Set(cues).size).toBe(cues.length);
   });
 
-  it('plays win or lose once, when the game ends', () => {
+  it('plays gameWon or gameLost once, when the game ends', () => {
     const { last: couped, over } = ending();
     expect(over.status).toBe('finished');
     expect(over.winner).toBe('b');
-    expect(soundCues(couped, over, 'b')).toEqual(['card', 'coin', 'win']);
-    expect(soundCues(couped, over, 'me')).toEqual(['card', 'coin', 'lose']);
+    expect(soundCues(couped, over, 'b')).toEqual([
+      'cardLost',
+      'coin',
+      'gameWon',
+    ]);
+    expect(soundCues(couped, over, 'me')).toEqual([
+      'cardLost',
+      'coin',
+      'gameLost',
+    ]);
     // Later snapshots of the finished game say nothing more.
     expect(soundCues(over, { ...over, log: [] }, 'b')).toEqual([]);
     expect(soundCues(over, { ...over, log: [] }, 'me')).toEqual([]);
   });
 
-  it('plays neither win nor lose for someone who is not in the game', () => {
+  it('plays neither gameWon nor gameLost for someone who is not in the game', () => {
     const { last, over } = ending();
-    expect(soundCues(last, over, 'stranger')).toEqual(['card', 'coin']);
+    expect(soundCues(last, over, 'stranger')).toEqual(['cardLost', 'coin']);
   });
 
   it('treats another round or another game as a first snapshot', () => {
@@ -454,18 +518,30 @@ describe('useGameSounds', () => {
     act(() => {
       gameScreen.update(<Probe key="over" game={over} as="b" />);
     });
-    expect(played()).toEqual(['card', 'coin', 'win']);
+    expect(played()).toEqual(['cardLost', 'coin', 'gameWon']);
     unmount(gameScreen);
   });
 
-  it('plays lose for the player who did not win', () => {
+  it('plays gameLost for the player who did not win', () => {
     const { last, over } = ending();
     const gameScreen = render(<Probe game={last} />);
     act(() => {
       gameScreen.update(<Probe key="over" game={over} />);
     });
-    expect(played()).toEqual(['card', 'coin', 'lose']);
+    expect(played()).toEqual(['cardLost', 'coin', 'gameLost']);
     unmount(gameScreen);
+  });
+
+  it('hands the lobby over to the game screen so the deal is heard', () => {
+    const started = table();
+    const lobby: Game = { ...started, status: 'waiting' };
+    const lobbyScreen = render(<Probe game={lobby} />);
+    expect(played()).toEqual([]);
+    act(() => {
+      lobbyScreen.update(<Probe key="game" game={started} />);
+    });
+    expect(played()).toEqual(['deal', 'turn']);
+    unmount(lobbyScreen);
   });
 
   it('is silent when a finished game is simply opened', () => {

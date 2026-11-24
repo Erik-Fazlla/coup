@@ -343,12 +343,12 @@ describe('GameOverScreen sounds', () => {
 
   it('plays the win sound for the winner when the game ends', () => {
     finishFor('a');
-    expect(played()).toEqual(['card', 'win']);
+    expect(played()).toEqual(['cardLost', 'gameWon']);
   });
 
   it('plays the lose sound for everyone else who played', () => {
     finishFor('b');
-    expect(played()).toEqual(['card', 'lose']);
+    expect(played()).toEqual(['cardLost', 'gameLost']);
   });
 
   it('plays nothing with sound switched off', () => {

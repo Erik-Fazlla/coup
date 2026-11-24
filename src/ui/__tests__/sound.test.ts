@@ -29,7 +29,7 @@ describe('playSound', () => {
         throw new Error('no audio');
       },
     };
-    expect(() => playSound('win')).not.toThrow();
+    expect(() => playSound('gameWon')).not.toThrow();
   });
 
   it('survives a native player without a play method', () => {
@@ -37,8 +37,8 @@ describe('playSound', () => {
     expect(() => playSound('card')).not.toThrow();
   });
 
-  it('knows the seven sounds the generator makes', () => {
-    const { SOUNDS } = require('../../../scripts/generate-sounds');
-    expect([...SOUND_NAMES].sort()).toEqual(Object.keys(SOUNDS).sort());
+  it('knows the sounds the importer makes', () => {
+    const { MANIFEST } = require('../../../scripts/import-sounds');
+    expect([...SOUND_NAMES].sort()).toEqual(Object.keys(MANIFEST).sort());
   });
 });

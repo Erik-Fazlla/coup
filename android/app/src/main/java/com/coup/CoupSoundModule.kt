@@ -10,7 +10,7 @@ import com.facebook.react.bridge.ReactMethod
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Plays the game's short sound effects (res/raw/sfx_*.wav, made by `npm run sounds`).
+ * Plays the game's short sound effects (res/raw/sfx_*.ogg, made by `npm run sounds` from assets/sounds).
  *
  * JavaScript reaches it as `NativeModules.CoupSound` and only ever calls `play(name)`;
  * see src/ui/sound.ts. Nothing here may crash the app: a phone that cannot play a
@@ -127,7 +127,7 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
   companion object {
     const val NAME = "CoupSound"
     private const val VOLUME = 0.6f
-    private const val MAX_STREAMS = 4
+    private const val MAX_STREAMS = 6
 
     /** The names JavaScript uses (SoundName in src/ui/sound.ts) and the file each one plays. */
     private val SOUNDS =
@@ -135,10 +135,16 @@ class CoupSoundModule(reactContext: ReactApplicationContext) :
             "turn" to R.raw.sfx_turn,
             "prompt" to R.raw.sfx_prompt,
             "coin" to R.raw.sfx_coin,
+            "deal" to R.raw.sfx_deal,
             "card" to R.raw.sfx_card,
-            "challenge" to R.raw.sfx_challenge,
-            "win" to R.raw.sfx_win,
-            "lose" to R.raw.sfx_lose,
+            "revealTrue" to R.raw.sfx_reveal_true,
+            "revealBluff" to R.raw.sfx_reveal_bluff,
+            "cardLost" to R.raw.sfx_card_lost,
+            "block" to R.raw.sfx_block,
+            "gameWon" to R.raw.sfx_game_won,
+            "gameLost" to R.raw.sfx_game_lost,
+            "whoosh" to R.raw.sfx_whoosh,
+            "flash" to R.raw.sfx_flash,
         )
   }
 }

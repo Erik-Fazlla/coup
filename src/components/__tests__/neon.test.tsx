@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text } from 'react-native';
+import { Image, StyleSheet, Text } from 'react-native';
 import { ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
 import { ActionTile } from '../ActionTile';
 import { Backdrop } from '../Backdrop';
@@ -119,7 +119,9 @@ describe('Button', () => {
       const renderer = render(
         <Button label="Go" variant={variant} onPress={() => {}} />,
       );
-      const children = renderer.root.findByType(Pressable).props.children;
+      const children = renderer.root.find(
+        node => typeof node.props.children === 'function',
+      ).props.children;
       return flat(children({ pressed: true }).props.style);
     };
     expect(pressedStyle('danger').boxShadow).toBe(glow.danger);

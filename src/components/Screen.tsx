@@ -2,6 +2,7 @@ import React from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme';
+import { Backdrop } from './Backdrop';
 
 /** Padding of the game table, where every dp of a small landscape phone counts. */
 export const COMPACT_PADDING = { vertical: spacing.sm, horizontal: spacing.md };
@@ -18,6 +19,7 @@ export function Screen({ children, compact = false }: Props) {
   const horizontal = compact ? COMPACT_PADDING.horizontal : spacing.lg;
   return (
     <View
+      testID="screen"
       style={[
         styles.screen,
         {
@@ -28,6 +30,7 @@ export function Screen({ children, compact = false }: Props) {
         },
       ]}
     >
+      <Backdrop />
       <StatusBar hidden />
       {children}
     </View>

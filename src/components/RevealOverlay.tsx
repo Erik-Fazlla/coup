@@ -101,6 +101,8 @@ export function RevealOverlay({
     opacity: part(progress, [0.45, 0.6], [0, 1]),
     transform: [
       { scale: part(progress, [0.45, 0.7], [1.8, 1]) },
+      { translateX: 8 },
+      { translateY: 10 },
       { rotate: '-10deg' },
     ],
   };
@@ -133,23 +135,52 @@ export function RevealOverlay({
           ]}
         >
           <CardShade />
+          {/* The stamp sits over the emblem, not the headline beside or below it. */}
           <View
             style={[
-              styles.well,
-              { width: well, height: well, borderRadius: well / 2 },
+              styles.emblem,
+              { width: well, height: well },
               compact ? styles.wellCompact : styles.wellStacked,
-              !truthful && styles.wellBluff,
             ]}
           >
-            <CharacterGlyph
-              card={card}
-              size={glyph}
-              color={palette.accent}
-              cutout={palette.fill}
-            />
-            {!truthful && (
-              <View style={[styles.strike, { width: glyph + 20 }]} />
-            )}
+            <View
+              style={[
+                styles.well,
+                { width: well, height: well, borderRadius: well / 2 },
+                !truthful && styles.wellBluff,
+              ]}
+            >
+              <CharacterGlyph
+                card={card}
+                size={glyph}
+                color={palette.accent}
+                cutout={palette.fill}
+              />
+              {!truthful && (
+                <View style={[styles.strike, { width: glyph + 20 }]} />
+              )}
+            </View>
+            <Animated.View
+              testID="reveal-stamp"
+              pointerEvents="none"
+              accessible={false}
+              importantForAccessibility="no-hide-descendants"
+              style={[
+                styles.stamp,
+                truthful ? styles.stampTrue : styles.stampBluff,
+                stampIn,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.stampText,
+                  { color: verdictColor, textShadowColor: verdictColor },
+                ]}
+                maxFontSizeMultiplier={READING_FONT_SCALE}
+              >
+                {truthful ? 'TRUE' : 'BLUFF'}
+              </Text>
+            </Animated.View>
           </View>
           <View style={compact ? styles.wordsCompact : styles.words}>
             <Text
@@ -169,27 +200,6 @@ export function RevealOverlay({
               {consequence}
             </Text>
           </View>
-          <Animated.View
-            testID="reveal-stamp"
-            pointerEvents="none"
-            accessible={false}
-            importantForAccessibility="no-hide-descendants"
-            style={[
-              styles.stamp,
-              truthful ? styles.stampTrue : styles.stampBluff,
-              stampIn,
-            ]}
-          >
-            <Text
-              style={[
-                styles.stampText,
-                { color: verdictColor, textShadowColor: verdictColor },
-              ]}
-              maxFontSizeMultiplier={READING_FONT_SCALE}
-            >
-              {truthful ? 'TRUE' : 'BLUFF'}
-            </Text>
-          </Animated.View>
         </AnimatedPressable>
       </View>
     </View>
@@ -251,11 +261,11 @@ const styles = StyleSheet.create({
   words: { alignSelf: 'stretch', alignItems: 'center' },
   // Beside the emblem: takes the rest of the row (the card's width is definite) and may shrink.
   wordsCompact: { flex: 1 },
-  // Stamped over the top-right corner of the card, at a slant.
+  // Holds the well and the stamp; the stamp is centred on it.
+  emblem: { alignItems: 'center', justifyContent: 'center' },
+  // Stamped over the emblem well, at a slant.
   stamp: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
     borderWidth: 2.5,
     borderRadius: radius.sm,
     paddingHorizontal: 8,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Animated, ScrollView, StyleSheet } from 'react-native';
 import { act, ReactTestRenderer } from 'react-test-renderer';
 import {
   findButton,
@@ -14,6 +14,8 @@ import { makeGame } from '../../engine/testHelpers';
 import { Card, Game } from '../../engine/types';
 import { playSound } from '../../ui/sound';
 import { useGameSounds } from '../../ui/soundCues';
+import { SparkBurst } from '../../components/SparkBurst';
+import { setMotionInstant } from '../../ui/motion';
 import { GameOverScreen } from '../GameOverScreen';
 
 const mockLeave = jest.fn();
@@ -224,6 +226,65 @@ describe('GameOverScreen summary', () => {
       expect(text.toLowerCase()).not.toContain('bluff');
       expect(text).not.toContain('SecretOne');
     });
+  });
+});
+
+describe('GameOverScreen entrance', () => {
+  const view = (renderer: ReactTestRenderer, testID: string) =>
+    renderer.root.find(
+      node => typeof node.type === 'string' && node.props.testID === testID,
+    );
+  const opacity = (renderer: ReactTestRenderer, testID: string) =>
+    StyleSheet.flatten(view(renderer, testID).props.style).opacity;
+
+  describe('with motion on', () => {
+    beforeEach(() => {
+      setMotionInstant(false);
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      setMotionInstant(true);
+      jest.useRealTimers();
+    });
+
+    it('sweeps the title in, then fades the results in', () => {
+      // Under Jest the native driver finishes without writing the value back,
+      // so the test checks the start state and the animation that is started.
+      const timing = jest.spyOn(Animated, 'timing');
+      const renderer = mount('a');
+      expect(opacity(renderer, 'title-entrance')).toBe(0);
+      expect(view(renderer, 'results')).toBeDefined();
+      expect(opacity(renderer, 'results-entrance')).toBe(0);
+      expect(timing).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          toValue: 1,
+          duration: 1200,
+          useNativeDriver: true,
+        }),
+      );
+      act(() => {
+        jest.advanceTimersByTime(1500);
+      });
+      act(() => renderer.unmount());
+      timing.mockRestore();
+    });
+
+    it('bursts sparks for the winner only', () => {
+      const won = mount('a');
+      expect(won.root.findAllByType(SparkBurst)).toHaveLength(1);
+      act(() => won.unmount());
+      const lost = mount('b');
+      expect(lost.root.findAllByType(SparkBurst)).toHaveLength(0);
+      act(() => lost.unmount());
+    });
+  });
+
+  it('shows everything at once with motion off, without sparks', () => {
+    const renderer = mount('a');
+    expect(opacity(renderer, 'title-entrance')).toBe(1);
+    expect(opacity(renderer, 'results-entrance')).toBe(1);
+    expect(renderer.root.findAllByType(SparkBurst)).toHaveLength(0);
   });
 });
 

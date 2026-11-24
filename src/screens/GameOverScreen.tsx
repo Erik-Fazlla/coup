@@ -1,10 +1,18 @@
-import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Button } from '../components/Button';
 import { CharacterStrip } from '../components/CharacterStrip';
 import { Panel } from '../components/Panel';
 import { Scoreboard } from '../components/Scoreboard';
 import { Screen } from '../components/Screen';
+import { SparkBurst } from '../components/SparkBurst';
 import { useGame } from '../context/GameContext';
 import { useProfile } from '../context/ProfileContext';
 import { eliminationLines, revealLine } from '../engine/describe';
@@ -15,8 +23,37 @@ import {
   spacing,
   typography,
 } from '../theme';
+import { motionEnabled } from '../ui/motion';
 import { useIsPortrait } from '../ui/orientation';
 import { useGameSounds } from '../ui/soundCues';
+
+const ENTRANCE_MS = 1200;
+
+/** 0 → 1 once on mount: the title sweeps in first, the results follow. Already 1 with motion off. */
+function useEntrance(): Animated.Value {
+  const progress = useRef(new Animated.Value(motionEnabled() ? 0 : 1)).current;
+  useEffect(() => {
+    if (!motionEnabled()) {
+      progress.setValue(1);
+      return;
+    }
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: ENTRANCE_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+  return progress;
+}
+
+const part = (
+  progress: Animated.Value,
+  inputRange: number[],
+  outputRange: number[],
+) => progress.interpolate({ inputRange, outputRange, extrapolate: 'clamp' });
 
 export function GameOverScreen() {
   const { game, gameId, connected, busy, error, leave, rematch } = useGame();
@@ -25,6 +62,7 @@ export function GameOverScreen() {
   const winner = game?.winner ?? null;
   const played = !!game?.players[playerId];
   const round = game?.round ?? 1;
+  const entrance = useEntrance();
 
   // The game screen closes as this one opens; the win or lose sound is played from here.
   useGameSounds(played ? game : null, playerId);
@@ -64,14 +102,25 @@ export function GameOverScreen() {
           ]}
         >
           <CharacterStrip size={26} />
-          <Text
-            style={[styles.title, youWon && styles.titleWon]}
-            numberOfLines={2}
-            adjustsFontSizeToFit
-            maxFontSizeMultiplier={READING_FONT_SCALE}
+          <Animated.View
+            testID="title-entrance"
+            style={[
+              styles.titleEntrance,
+              {
+                opacity: part(entrance, [0, 0.3], [0, 1]),
+                transform: [{ translateX: part(entrance, [0, 0.3], [-30, 0]) }],
+              },
+            ]}
           >
-            {title}
-          </Text>
+            <Text
+              style={[styles.title, youWon && styles.titleWon]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              maxFontSizeMultiplier={READING_FONT_SCALE}
+            >
+              {title}
+            </Text>
+          </Animated.View>
           <Text style={styles.meta} maxFontSizeMultiplier={READING_FONT_SCALE}>
             Round {game.round} · {game.state.turnNumber} turns
           </Text>
@@ -102,44 +151,58 @@ export function GameOverScreen() {
               {error}
             </Text>
           )}
+          {youWon && motionEnabled() && <SparkBurst />}
         </Panel>
 
-        <Panel style={[styles.details, !portrait && styles.beside]}>
-          <ScrollView
-            style={styles.detailsScroll}
-            contentContainerStyle={styles.detailsContent}
-            testID="summary-scroll"
-          >
-            <Text style={styles.heading} accessibilityRole="header">
-              HOW IT WENT
-            </Text>
-            {story.length === 0 ? (
-              <Text
-                style={styles.storyLine}
-                maxFontSizeMultiplier={READING_FONT_SCALE}
-              >
-                Nobody was taken out.
+        {/* The wrapper takes the panel's place in the layout; the panel fills it. */}
+        <Animated.View
+          testID="results-entrance"
+          style={[
+            styles.details,
+            !portrait && styles.beside,
+            { opacity: part(entrance, [0.45, 0.75], [0, 1]) },
+          ]}
+        >
+          <Panel testID="results" style={styles.details}>
+            <ScrollView
+              style={styles.detailsScroll}
+              contentContainerStyle={styles.detailsContent}
+              testID="summary-scroll"
+            >
+              <Text style={styles.heading} accessibilityRole="header">
+                HOW IT WENT
               </Text>
-            ) : (
-              story.map((entry, index) => (
-                <View key={index} style={styles.story}>
-                  <Text style={styles.storyNumber} maxFontSizeMultiplier={1.15}>
-                    {index + 1}
-                  </Text>
-                  <Text
-                    style={styles.storyLine}
-                    maxFontSizeMultiplier={READING_FONT_SCALE}
-                  >
-                    {entry}
-                  </Text>
-                </View>
-              ))
-            )}
-            <View style={styles.scores}>
-              <Scoreboard game={game} playerId={playerId} />
-            </View>
-          </ScrollView>
-        </Panel>
+              {story.length === 0 ? (
+                <Text
+                  style={styles.storyLine}
+                  maxFontSizeMultiplier={READING_FONT_SCALE}
+                >
+                  Nobody was taken out.
+                </Text>
+              ) : (
+                story.map((entry, index) => (
+                  <View key={index} style={styles.story}>
+                    <Text
+                      style={styles.storyNumber}
+                      maxFontSizeMultiplier={1.15}
+                    >
+                      {index + 1}
+                    </Text>
+                    <Text
+                      style={styles.storyLine}
+                      maxFontSizeMultiplier={READING_FONT_SCALE}
+                    >
+                      {entry}
+                    </Text>
+                  </View>
+                ))
+              )}
+              <View style={styles.scores}>
+                <Scoreboard game={game} playerId={playerId} />
+              </View>
+            </ScrollView>
+          </Panel>
+        </Animated.View>
       </View>
     </Screen>
   );
@@ -169,6 +232,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   titleWon: { color: colors.primary, ...glowText },
+  titleEntrance: { alignSelf: 'stretch' },
   meta: {
     ...typography.body,
     color: colors.muted,

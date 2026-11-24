@@ -6,6 +6,7 @@ import { CardCrack } from '../CardCrack';
 import { FadeIn } from '../FadeIn';
 import { PulseRing } from '../PulseRing';
 import { SeatEffects } from '../SeatEffects';
+import { SparkBurst } from '../SparkBurst';
 import { render, texts } from '../testUtils';
 
 describe('SeatEffects', () => {
@@ -172,5 +173,37 @@ describe('CardCrack', () => {
     expect(render(<CardCrack play={false} />).toJSON()).toBeNull();
     setMotionInstant(true);
     expect(render(<CardCrack play />).toJSON()).toBeNull();
+  });
+});
+
+describe('SparkBurst', () => {
+  afterEach(() => {
+    setMotionInstant(true);
+    jest.useRealTimers();
+  });
+
+  const sparks = (renderer: ReturnType<typeof render>) =>
+    renderer.root.findAll(
+      node => typeof node.type === 'string' && node.props.testID === 'spark',
+    );
+
+  it('bursts twelve sparks once, taking no touches, then clears itself', () => {
+    setMotionInstant(false);
+    jest.useFakeTimers();
+    const renderer = render(<SparkBurst />);
+    expect(sparks(renderer)).toHaveLength(12);
+    const root = renderer.root.findAll(
+      node => typeof node.type === 'string',
+    )[0];
+    expect(root.props.pointerEvents).toBe('none');
+    expect(root.props.importantForAccessibility).toBe('no-hide-descendants');
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+    expect(renderer.toJSON()).toBeNull();
+  });
+
+  it('draws nothing with motion off', () => {
+    expect(render(<SparkBurst />).toJSON()).toBeNull();
   });
 });

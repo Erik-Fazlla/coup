@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import {
   colors,
+  glow,
   radius,
   READING_FONT_SCALE,
   spacing,
@@ -97,10 +98,11 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 560,
-    backgroundColor: colors.surface,
+    backgroundColor: '#020b0e',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderStrong,
+    boxShadow: glow.cyan,
     overflow: 'hidden',
   },
   header: {

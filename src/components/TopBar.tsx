@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   colors,
   DENSE_FONT_SCALE,
+  glowText,
   radius,
   spacing,
   TOUCH_MIN,
@@ -193,6 +194,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 4,
     marginRight: spacing.md,
+    ...glowText,
+    textShadowRadius: 8,
   },
   stat: {
     flexDirection: 'row',

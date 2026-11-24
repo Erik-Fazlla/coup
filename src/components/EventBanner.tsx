@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   colors,
+  glow,
   radius,
   READING_FONT_SCALE,
   spacing,
@@ -113,7 +114,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     overflow: 'hidden',
   },
-  bannerYours: { borderColor: colors.primary },
+  bannerYours: { borderColor: colors.primary, boxShadow: glow.cyan },
   pressed: { opacity: 0.8 },
   marker: {
     alignSelf: 'stretch',

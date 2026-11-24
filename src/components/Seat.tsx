@@ -2,7 +2,7 @@ import React from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { unrevealedCount } from '../engine/rules';
 import { Influence, Player } from '../engine/types';
-import { colors, DENSE_FONT_SCALE, radius, typography } from '../theme';
+import { colors, DENSE_FONT_SCALE, glow, radius, typography } from '../theme';
 import { useFlip } from '../ui/motion';
 import { CardBack } from './CardBack';
 import { Coins } from './Coins';
@@ -184,11 +184,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   fill: { flex: 1 },
-  turn: { borderColor: colors.coin },
+  turn: { borderColor: colors.coin, boxShadow: glow.gold },
   out: { opacity: 0.5, borderStyle: 'dashed' },
   targetable: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryFill,
+    boxShadow: glow.cyan,
   },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.7 },

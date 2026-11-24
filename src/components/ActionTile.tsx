@@ -4,10 +4,12 @@ import {
   CharacterPalette,
   colors,
   DENSE_FONT_SCALE,
+  glow,
   radius,
   TOUCH_MIN,
 } from '../theme';
 import { usePressScale } from '../ui/motion';
+import { CardShade } from './CardShade';
 
 interface Props {
   label: string;
@@ -64,6 +66,7 @@ export function ActionTile({
             { transform: [{ scale }] },
           ]}
         >
+          <CardShade />
           {icon ? <View style={styles.icon}>{icon}</View> : null}
           <Text
             style={[styles.label, large && styles.labelLarge]}
@@ -103,12 +106,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 7,
     borderRadius: radius.md,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    overflow: 'hidden',
     borderColor: colors.edge,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  selected: { borderColor: colors.primary },
+  selected: { borderColor: colors.primary, boxShadow: glow.cyan },
   pressed: { opacity: 0.8 },
   disabled: { opacity: 0.38 },
   icon: { marginBottom: 4 },

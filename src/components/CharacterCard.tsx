@@ -6,11 +6,14 @@ import {
   characterColors,
   colors,
   DENSE_FONT_SCALE,
+  glow,
+  neon,
   radius,
   TOUCH_MIN,
   typography,
 } from '../theme';
 import { useFlip } from '../ui/motion';
+import { CardShade } from './CardShade';
 import { CharacterGlyph } from './CharacterGlyph';
 
 const BADGE = 22;
@@ -52,14 +55,15 @@ export function CharacterCard({
   const fill = shownLost ? colors.background : palette.fill;
   const face = [
     styles.card,
-    { backgroundColor: fill, borderColor: accent },
-    shownLost && styles.lost,
-    selected && styles.selected,
+    { backgroundColor: fill },
+    shownLost ? styles.lost : styles.frame,
+    selected && !shownLost && styles.selected,
     disabled && styles.disabled,
   ];
 
   const content = (
     <>
+      {!shownLost && <CardShade />}
       <View style={styles.top}>
         <View style={styles.badge}>
           <CharacterGlyph
@@ -136,11 +140,15 @@ const styles = StyleSheet.create({
     minHeight: TOUCH_MIN,
     padding: 5,
     borderRadius: radius.md,
-    borderWidth: 2,
+    borderWidth: 1.5,
     overflow: 'hidden',
   },
-  lost: { borderStyle: 'dashed' },
-  selected: { borderColor: colors.primary },
+  frame: { borderColor: neon.cyan, boxShadow: glow.cyan },
+  lost: { borderStyle: 'dashed', borderColor: colors.faint, boxShadow: 'none' },
+  selected: {
+    borderColor: '#ffffff',
+    boxShadow: '0 0 18px rgba(255, 255, 255, 0.55)',
+  },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.75 },
   top: {

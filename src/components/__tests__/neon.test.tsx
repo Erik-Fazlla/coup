@@ -1,10 +1,19 @@
 import React from 'react';
 import { Image, StyleSheet, Text } from 'react-native';
 import { ReactTestInstance, ReactTestRenderer } from 'react-test-renderer';
+import { ActionTile } from '../ActionTile';
 import { Backdrop } from '../Backdrop';
+import { CardBack } from '../CardBack';
 import { Button } from '../Button';
+import { CharacterCard } from '../CharacterCard';
 import { Panel } from '../Panel';
-import { colors, glow, neon } from '../../theme';
+import {
+  characterColors,
+  colors,
+  glow,
+  neon,
+  neutralPalette,
+} from '../../theme';
 import { Screen } from '../Screen';
 import { render } from '../testUtils';
 
@@ -21,6 +30,10 @@ const host = (renderer: ReactTestRenderer, id: string) =>
   renderer.root.find(
     node => node.props.testID === id && typeof node.type === 'string',
   );
+const hostCount = (renderer: ReactTestRenderer, id: string) =>
+  renderer.root.findAll(
+    node => node.props.testID === id && typeof node.type === 'string',
+  ).length;
 
 describe('Screen backdrop', () => {
   it('draws the cyan haze behind the content, never in front of it', () => {
@@ -103,5 +116,85 @@ describe('Button', () => {
     const { style } = face(<Button label="Join" disabled onPress={() => {}} />);
     expect(style.boxShadow).toBe('none');
     expect(style.opacity).toBe(0.35);
+  });
+});
+
+describe('CharacterCard', () => {
+  const cardStyle = (element: React.ReactElement) => {
+    const renderer = render(element);
+    return { renderer, style: flat(host(renderer, 'card').props.style) };
+  };
+
+  it('keeps the character colour inside a glowing cyan frame, with shading', () => {
+    const { renderer, style } = cardStyle(
+      <CharacterCard card="Duke" testID="card" />,
+    );
+    expect(style.backgroundColor).toBe(characterColors.Duke.fill);
+    expect(style.borderColor).toBe(neon.cyan);
+    expect(style.borderWidth).toBe(1.5);
+    expect(style.boxShadow).toBe(glow.cyan);
+    expect(hostCount(renderer, 'card-shade')).toBe(1);
+  });
+
+  it('marks a selected card with a white frame', () => {
+    const { style } = cardStyle(
+      <CharacterCard card="Duke" selected testID="card" />,
+    );
+    expect(style.borderColor).toBe('#ffffff');
+  });
+
+  it('a lost card loses its colour and its glow', () => {
+    const { renderer, style } = cardStyle(
+      <CharacterCard card="Duke" lost testID="card" />,
+    );
+    expect(style.backgroundColor).toBe(colors.background);
+    expect(style.borderColor).toBe(colors.faint);
+    expect(style.boxShadow).toBe('none');
+    expect(hostCount(renderer, 'card-shade')).toBe(0);
+  });
+});
+
+describe('CardBack', () => {
+  it('is a black card in a cyan frame with a hat, and says nothing about the card', () => {
+    const renderer = render(<CardBack />);
+    const style = flat(host(renderer, 'card-back').props.style);
+    expect(style.backgroundColor).toBe(colors.background);
+    expect(style.borderColor).toBe(neon.cyan);
+    expect(hostCount(renderer, 'card-back-hat')).toBe(1);
+    expect(renderer.root.findAllByType(Text)).toHaveLength(0);
+  });
+});
+
+describe('ActionTile', () => {
+  const tile = (selected: boolean) => {
+    const renderer = render(
+      <ActionTile
+        label="Income"
+        detail="+1"
+        accessibilityLabel="Income"
+        palette={neutralPalette}
+        selected={selected}
+        onPress={() => {}}
+      />,
+    );
+    const face = renderer.root.findAll(
+      node =>
+        typeof node.type === 'string' &&
+        node.props.style &&
+        flat(node.props.style).borderRadius !== undefined,
+    )[0];
+    return { renderer, style: flat(face.props.style) };
+  };
+
+  it('has a cyan edge and the colour shading', () => {
+    const { renderer, style } = tile(false);
+    expect(style.borderColor).toBe(colors.edge);
+    expect(hostCount(renderer, 'card-shade')).toBe(1);
+  });
+
+  it('glows when it is the chosen action', () => {
+    const { style } = tile(true);
+    expect(style.borderColor).toBe(colors.primary);
+    expect(style.boxShadow).toBe(glow.cyan);
   });
 });

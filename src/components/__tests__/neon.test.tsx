@@ -16,6 +16,7 @@ import {
   neutralPalette,
 } from '../../theme';
 import { Screen } from '../Screen';
+import { Sheet } from '../Sheet';
 import { render } from '../testUtils';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -101,7 +102,7 @@ describe('Button', () => {
     expect(style.backgroundColor).toBe(neon.blue);
     expect(style.borderColor).toBe(neon.cyan);
     expect(style.boxShadow).toBe(glow.blue);
-    expect(label.color).toBe('#ffffff');
+    expect(label.color).toBe(colors.text);
   });
 
   it('second button: black with a cyan outline', () => {
@@ -157,7 +158,8 @@ describe('CharacterCard', () => {
     const { style } = cardStyle(
       <CharacterCard card="Duke" selected testID="card" />,
     );
-    expect(style.borderColor).toBe('#ffffff');
+    expect(style.borderColor).toBe(colors.text);
+    expect(style.boxShadow).toBe(glow.white);
   });
 
   it('a lost card loses its colour and its glow', () => {
@@ -177,6 +179,7 @@ describe('CardBack', () => {
     const style = flat(host(renderer, 'card-back').props.style);
     expect(style.backgroundColor).toBe(colors.background);
     expect(style.borderColor).toBe(neon.cyan);
+    expect(style.boxShadow).toBe(glow.cardBack);
     expect(hostCount(renderer, 'card-back-hat')).toBe(1);
     expect(renderer.root.findAllByType(Text)).toHaveLength(0);
   });
@@ -223,5 +226,23 @@ describe('CardShade', () => {
     expect(style.width).toBe('100%');
     expect(style.height).toBe('100%');
     expect(style.position).toBe('absolute');
+  });
+});
+
+describe('Sheet', () => {
+  it('has a quiet glow and a theme-token fill; cyan is kept for "you / tap here"', () => {
+    const renderer = render(
+      <Sheet title="Rules" onClose={() => {}} testID="sheet">
+        <Text>x</Text>
+      </Sheet>,
+    );
+    const sheet = renderer.root.find(
+      node =>
+        typeof node.type === 'string' &&
+        flat(node.props.style).maxWidth === 560,
+    );
+    const style = flat(sheet.props.style);
+    expect(style.boxShadow).toBe(glow.soft);
+    expect(style.backgroundColor).toBe(colors.sheet);
   });
 });

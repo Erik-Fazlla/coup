@@ -18,6 +18,10 @@ export const glow = {
   blue: '0 0 16px rgba(30, 107, 255, 0.75)',
   /** A quiet edge glow on panels. */
   soft: '0 0 10px rgba(0, 229, 255, 0.18)',
+  /** A face-down card. */
+  cardBack: '0 0 6px rgba(0, 229, 255, 0.45)',
+  /** The card picked in a choice. */
+  white: '0 0 18px rgba(255, 255, 255, 0.55)',
   /** A destructive button under the finger. */
   danger: '0 0 14px rgba(248, 113, 113, 0.55)',
   /** The player whose turn it is. */
@@ -37,6 +41,8 @@ export const colors = {
   surface: 'rgba(0, 20, 27, 0.72)',
   /** Tiles and buttons that sit on a panel. */
   surfaceRaised: '#071a20',
+  /** The solid fill of a sheet drawn over the table. */
+  sheet: '#020b0e',
   border: 'rgba(0, 229, 255, 0.18)',
   borderStrong: 'rgba(0, 229, 255, 0.42)',
   text: '#ffffff',

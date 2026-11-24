@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   pressedDanger: { boxShadow: glow.danger },
   disabled: { opacity: 0.35, boxShadow: 'none' },
   label: {
-    color: '#ffffff',
+    color: colors.text,
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.5,

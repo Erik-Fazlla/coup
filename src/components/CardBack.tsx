@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors, neon } from '../theme';
+import { colors, glow, neon } from '../theme';
 
 export const SMALL_CARD = { width: 18, height: 24 };
 
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: neon.cyan,
     backgroundColor: colors.background,
-    boxShadow: '0 0 6px rgba(0, 229, 255, 0.45)',
+    boxShadow: glow.cardBack,
     alignItems: 'center',
     justifyContent: 'center',
   },

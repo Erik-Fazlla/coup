@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
   frame: { borderColor: neon.cyan, boxShadow: glow.cyan },
   lost: { borderStyle: 'dashed', borderColor: colors.faint, boxShadow: 'none' },
   selected: {
-    borderColor: '#ffffff',
-    boxShadow: '0 0 18px rgba(255, 255, 255, 0.55)',
+    borderColor: colors.text,
+    boxShadow: glow.white,
   },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.75 },

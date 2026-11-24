@@ -98,11 +98,11 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 560,
-    backgroundColor: '#020b0e',
+    backgroundColor: colors.sheet,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.borderStrong,
-    boxShadow: glow.cyan,
+    boxShadow: glow.soft,
     overflow: 'hidden',
   },
   header: {

@@ -1,0 +1,15 @@
+{
+  "turn": { "source": "interface-sounds/confirmation_002.ogg" },
+  "prompt": { "source": "interface-sounds/question_002.ogg" },
+  "coin": { "source": "casino-audio/chips-handle-3.ogg" },
+  "deal": { "source": "casino-audio/card-shuffle.ogg", "seconds": 0.9 },
+  "card": { "source": "casino-audio/card-place-1.ogg" },
+  "revealTrue": { "source": "digital-audio/powerUp2.ogg" },
+  "revealBluff": { "source": "impact-sounds/impactPunch_heavy_000.ogg" },
+  "cardLost": { "source": "impact-sounds/impactGlass_medium_001.ogg" },
+  "block": { "source": "impact-sounds/impactSoft_heavy_001.ogg" },
+  "gameWon": { "source": "digital-audio/zapThreeToneUp.ogg" },
+  "gameLost": { "source": "digital-audio/zapThreeToneDown.ogg" },
+  "whoosh": { "source": "casino-audio/card-fan-1.ogg" },
+  "flash": { "source": "digital-audio/phaserUp3.ogg" }
+}

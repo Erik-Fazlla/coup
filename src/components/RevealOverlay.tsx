@@ -176,6 +176,7 @@ export function RevealOverlay({
                   styles.stampText,
                   { color: verdictColor, textShadowColor: verdictColor },
                 ]}
+                numberOfLines={1}
                 maxFontSizeMultiplier={READING_FONT_SCALE}
               >
                 {truthful ? 'TRUE' : 'BLUFF'}
@@ -266,6 +267,9 @@ const styles = StyleSheet.create({
   // Stamped over the emblem well, at a slant.
   stamp: {
     position: 'absolute',
+    // Wider than the emblem it is centred on, so the word never wraps or gets cut.
+    minWidth: 120,
+    alignItems: 'center',
     borderWidth: 2.5,
     borderRadius: radius.sm,
     paddingHorizontal: 8,
